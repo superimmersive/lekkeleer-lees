@@ -168,7 +168,7 @@ header {
 }
 
 .tts-status {
-  display: flex;
+  display: none; /* Hidden; TTS status still updated in JS for debugging if needed */
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
@@ -204,6 +204,19 @@ header {
   margin: 8px 16px 0;
   font-weight: 600;
   line-height: 1.5;
+}
+
+.review-note {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  max-width: calc(100vw - 24px);
+  font-size: 0.78rem;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  border-radius: 8px;
+  z-index: 30;
 }
 
 .card-wrap {
@@ -436,41 +449,33 @@ header {
 
 .wave-bar {
   width: 4px;
-  min-height: 4px;
+  height: 20px;
   background: currentColor;
   border-radius: 2px;
-  animation: wave-anim 0.5s ease infinite alternate;
+  transform: scaleY(0.16);
+  transform-origin: 50% 100%;
+  opacity: 0.35;
+  transition: transform 80ms linear, opacity 80ms linear;
 }
 
 .wave-bar:nth-child(1) {
   height: 8px;
-  animation-delay: 0s;
 }
 
 .wave-bar:nth-child(2) {
   height: 14px;
-  animation-delay: 0.1s;
 }
 
 .wave-bar:nth-child(3) {
   height: 20px;
-  animation-delay: 0.2s;
 }
 
 .wave-bar:nth-child(4) {
   height: 14px;
-  animation-delay: 0.1s;
 }
 
 .wave-bar:nth-child(5) {
   height: 8px;
-  animation-delay: 0s;
-}
-
-@keyframes wave-anim {
-  to {
-    transform: scaleY(0.3);
-  }
 }
 
 .score-chip {
@@ -489,8 +494,8 @@ header {
   color: var(--green);
 }
 
-.score-missed {
-  color: var(--red);
+.score-support {
+  color: var(--blue);
 }
 
 .controls {
@@ -574,6 +579,12 @@ header {
 .btn-next {
   background: var(--green);
   color: var(--white);
+}
+
+/* Hide navigation buttons in review builds */
+.btn-prev,
+.btn-next {
+  display: none;
 }
 
 .progress-dots {
@@ -723,6 +734,11 @@ button.dot {
 }
 
 @media (max-width: 480px) {
+  .review-note {
+    right: 12px;
+    bottom: 12px;
+  }
+
   .sentence-card {
     padding: 26px 18px 20px;
   }

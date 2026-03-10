@@ -18,32 +18,32 @@ const AZURE_CONFIG = {
   },
 };
 
-const MODE_TIPS = {
-  listen:
-    "🎤 Tik <strong>Begin Lees</strong> en lees die sin hardop — elke woord word groen! | Tap <strong>Begin Lees</strong> and read aloud!",
-  listenNoSpeech:
-    "😔 Spraakherkenning is slegs beskikbaar in Chrome. Gebruik Tik Modus.",
-  tap:
-    "👆 Tik <strong>Woord</strong> om een woord op 'n slag te leer. | Tap <strong>Word</strong> one at a time.",
-  play:
-    "🔊 Tik <strong>Speel</strong> om die sin te hoor. | Tap <strong>Play</strong> to hear the sentence.",
-};
-
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSpeechRecognition = Boolean(SpeechRecognitionCtor);
+const TIP_TEXT = hasSpeechRecognition
+  ? "🎤 Tik <strong>Begin Lees</strong> en lees die sin hardop — elke woord word groen! | Tap <strong>Begin Lees</strong> and read aloud!"
+  : "😔 Spraakherkenning is slegs beskikbaar in Chrome.";
+
+function isElectronRuntime() {
+  return /Electron|Cursor/i.test(navigator.userAgent);
+}
 
 const state = {
   current: 0,
-  mode: "listen",
   listening: false,
   recognition: null,
+  inputMeter: null,
+  lastTranscriptWords: [],
   wordIndex: 0,
   expectedWord: 0,
   currentVoice: "Adri",
   currentSynth: null,
+  currentAudio: null,
   sdkReady: false,
   sdkLoading: false,
   sdkResolvers: [],
+  ttsCache: new Map(),
+  ttsPending: new Map(),
   wordHighlightTimers: [],
   pendingSentenceCompletion: null,
   totals: {
@@ -59,10 +59,8 @@ const state = {
 
 const els = {
   starsBar: document.getElementById("starsBar"),
-  modeButtons: Array.from(document.querySelectorAll("[data-mode]")),
   voiceButtons: Array.from(document.querySelectorAll("[data-voice]")),
   ttsStatus: document.getElementById("ttsStatus"),
-  tipBar: document.getElementById("tipBar"),
   mainCard: document.getElementById("mainCard"),
   sentenceNum: document.getElementById("sentenceNum"),
   sentenceEmoji: document.getElementById("sentenceEmoji"),
@@ -75,20 +73,22 @@ const els = {
   micStatus: document.getElementById("micStatus"),
   scoreChip: document.getElementById("scoreChip"),
   scoreCorrect: document.getElementById("scoreCorrect"),
-  scoreMissed: document.getElementById("scoreMissed"),
+  scoreSupport: document.getElementById("scoreSupport"),
   controls: document.getElementById("controls"),
   prevBtn: document.getElementById("prevBtn"),
   listenBtn: document.getElementById("listenBtn"),
   listenIcon: document.getElementById("listenIcon"),
   listenLabel: document.getElementById("listenLabel"),
-  playBtn: document.getElementById("playBtn"),
-  wordBtn: document.getElementById("wordBtn"),
   nextBtn: document.getElementById("nextBtn"),
   progressDots: document.getElementById("progressDots"),
   restartBtn: document.getElementById("restartBtn"),
 };
 
 const speechSynthesisService = {
+  buildCacheKey(text, rate = 1) {
+    return `${state.currentVoice}|${rate}|${text}`;
+  },
+
   async loadSdk() {
     if (state.sdkReady) {
       return true;
@@ -123,7 +123,7 @@ const speechSynthesisService = {
     els.ttsStatus.textContent = message;
   },
 
-  async speak(text, rate = 1) {
+  async createAudioUrl(text, rate = 1) {
     const sdkLoaded = await this.loadSdk();
     if (!sdkLoaded) {
       this.updateStatus("error", "⚠️ SDK laai fout");
@@ -144,8 +144,6 @@ const speechSynthesisService = {
       </voice>
     </speak>`;
 
-    this.updateStatus("busy", "🔊 ...");
-
     return new Promise((resolve, reject) => {
       synthesizer.speakSsmlAsync(
         ssml,
@@ -155,26 +153,88 @@ const speechSynthesisService = {
           }
           synthesizer.close();
 
-          if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            this.updateStatus("ok", "✅ Azure TTS");
-            resolve(result);
+          if (result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+            reject(result);
             return;
           }
 
-          this.updateStatus("error", "⚠️ Stem fout");
-          reject(result);
+          const blob = new Blob([result.audioData], { type: "audio/wav" });
+          resolve(URL.createObjectURL(blob));
         },
         (error) => {
           if (state.currentSynth === synthesizer) {
             state.currentSynth = null;
           }
           synthesizer.close();
-          console.error("Azure TTS error:", error);
-          this.updateStatus("error", "⚠️ Verbinding fout");
           reject(error);
         }
       );
     });
+  },
+
+  async getOrCreateAudioUrl(text, rate = 1) {
+    const key = this.buildCacheKey(text, rate);
+    if (state.ttsCache.has(key)) {
+      return state.ttsCache.get(key);
+    }
+
+    if (!state.ttsPending.has(key)) {
+      state.ttsPending.set(
+        key,
+        this.createAudioUrl(text, rate)
+          .then((url) => {
+            state.ttsCache.set(key, url);
+            state.ttsPending.delete(key);
+            return url;
+          })
+          .catch((error) => {
+            state.ttsPending.delete(key);
+            throw error;
+          })
+      );
+    }
+
+    return state.ttsPending.get(key);
+  },
+
+  async playAudioUrl(url) {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(url);
+      state.currentAudio = audio;
+
+      audio.onended = () => {
+        if (state.currentAudio === audio) {
+          state.currentAudio = null;
+        }
+        resolve();
+      };
+
+      audio.onerror = () => {
+        if (state.currentAudio === audio) {
+          state.currentAudio = null;
+        }
+        reject(new Error("Audio playback failed"));
+      };
+
+      audio.play().catch(reject);
+    });
+  },
+
+  preload(text, rate = 1) {
+    this.getOrCreateAudioUrl(text, rate).catch(() => {});
+  },
+
+  async speak(text, rate = 1) {
+    this.updateStatus("busy", "🔊 ...");
+    try {
+      const url = await this.getOrCreateAudioUrl(text, rate);
+      await this.playAudioUrl(url);
+      this.updateStatus("ok", "✅ Azure TTS");
+    } catch (error) {
+      console.error("Azure TTS error:", error);
+      this.updateStatus("error", "⚠️ Verbinding fout");
+      throw error;
+    }
   },
 
   stop() {
@@ -188,6 +248,12 @@ const speechSynthesisService = {
         console.warn("Unable to stop synthesizer:", error);
       }
       state.currentSynth = null;
+    }
+
+    if (state.currentAudio) {
+      state.currentAudio.pause();
+      state.currentAudio.currentTime = 0;
+      state.currentAudio = null;
     }
   },
 };
@@ -208,17 +274,37 @@ const recognitionService = {
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         transcript += event.results[index][0].transcript;
       }
-      processTranscript(transcript.toLowerCase().trim());
+      const transcriptWords = tokenizeTranscript(transcript);
+      if (!transcriptWords.length) {
+        return;
+      }
+
+      const unchangedPrefixLength = getCommonPrefixLength(state.lastTranscriptWords, transcriptWords);
+      const newWords = transcriptWords.slice(unchangedPrefixLength);
+      state.lastTranscriptWords = transcriptWords;
+
+      if (!newWords.length) {
+        return;
+      }
+
+      processTranscript(newWords);
     };
 
     recognition.onerror = (event) => {
       if (event.error === "not-allowed") {
         renderMicStatus("error", "🚫 Mikrofoon geweier. Gee toestemming in browser.");
       } else if (event.error === "no-speech") {
-        renderMicStatus("ready", "🎤 Geen spraak — probeer weer...");
+        renderHearingStatus("🎤 Neem jou tyd... lees die volgende woord wanneer jy gereed is.");
+        return;
+      } else if (event.error === "network") {
+        const networkMessage = isElectronRuntime()
+          ? "⚠️ Spraakherkenning werk nie betroubaar in Cursor nie. Gebruik Chrome of Edge."
+          : "⚠️ Browser spraakdiens is onbeskikbaar. Probeer Chrome of Edge.";
+        renderMicStatus("error", networkMessage);
       } else {
         renderMicStatus("error", `⚠️ Fout: ${event.error}`);
       }
+
       stopListening();
     };
 
@@ -267,16 +353,11 @@ function init() {
   bindEvents();
   renderStars();
   renderVoiceButtons();
-  setMode("listen");
+  refreshUI();
+  speechSynthesisService.loadSdk().catch(() => {});
 }
 
 function bindEvents() {
-  els.modeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setMode(button.dataset.mode);
-    });
-  });
-
   els.voiceButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setVoice(button.dataset.voice);
@@ -286,8 +367,6 @@ function bindEvents() {
   els.prevBtn.addEventListener("click", () => navigate(-1));
   els.nextBtn.addEventListener("click", () => navigate(1));
   els.listenBtn.addEventListener("click", toggleListen);
-  els.playBtn.addEventListener("click", playAudio);
-  els.wordBtn.addEventListener("click", readNextWord);
   els.restartBtn.addEventListener("click", restart);
 
   document.addEventListener("keydown", handleKeydown);
@@ -310,13 +389,7 @@ function handleKeydown(event) {
 
   if (event.key === " ") {
     event.preventDefault();
-    if (state.mode === "listen") {
-      toggleListen();
-    } else if (state.mode === "play") {
-      playAudio();
-    } else {
-      readNextWord();
-    }
+    toggleListen();
   }
 }
 
@@ -331,6 +404,7 @@ function getWordSpans() {
 function setVoice(name) {
   state.currentVoice = name;
   renderVoiceButtons();
+  warmSentenceAudio(getCurrentSentence().af.split(" "));
 }
 
 function renderVoiceButtons() {
@@ -339,31 +413,14 @@ function renderVoiceButtons() {
   });
 }
 
-function setMode(mode) {
-  state.mode = mode;
+function refreshUI() {
   resetSentenceProgress();
   stopListening();
   speechSynthesisService.stop();
-  renderModeButtons();
-  renderControlVisibility();
   renderSentence();
-  renderTip();
-  renderMicStatusForMode();
+  renderMicStatus("idle", hasSpeechRecognition ? "🎤 Gereed — tik Begin Lees!" : "Gebruik Chrome vir spraakherkenning");
   renderScoreChip();
   renderProgressDots();
-}
-
-function renderModeButtons() {
-  els.modeButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === state.mode);
-  });
-}
-
-function renderControlVisibility() {
-  els.listenBtn.classList.toggle("hidden", state.mode !== "listen");
-  els.playBtn.classList.toggle("hidden", state.mode !== "play");
-  els.wordBtn.classList.toggle("hidden", state.mode !== "tap");
-  els.scoreChip.classList.toggle("hidden", state.mode !== "listen");
 }
 
 function renderSentence() {
@@ -377,36 +434,15 @@ function renderSentence() {
 
   words.forEach((word, index) => {
     const span = document.createElement("span");
-    span.className = `word-span${state.mode === "listen" && index === 0 ? " active" : ""}`;
+    span.className = `word-span${index === 0 ? " active" : ""}`;
     span.textContent = word;
     span.dataset.index = String(index);
     span.dataset.word = normalizeWord(word);
     span.addEventListener("click", () => speakWord(span.dataset.word, span));
     els.sentenceText.appendChild(span);
   });
-}
 
-function renderTip() {
-  if (state.mode === "listen") {
-    els.tipBar.innerHTML = hasSpeechRecognition ? MODE_TIPS.listen : MODE_TIPS.listenNoSpeech;
-    return;
-  }
-
-  els.tipBar.innerHTML = MODE_TIPS[state.mode];
-}
-
-function renderMicStatusForMode() {
-  if (state.mode === "listen") {
-    renderMicStatus("idle", hasSpeechRecognition ? "🎤 Gereed — tik Begin Lees!" : "Gebruik Chrome vir spraakherkenning");
-    return;
-  }
-
-  if (state.mode === "tap") {
-    renderMicStatus("idle", "👆 Tik Woord om te begin");
-    return;
-  }
-
-  renderMicStatus("idle", "🔊 Tik Speel om te begin");
+  warmSentenceAudio(words);
 }
 
 function renderMicStatus(status, message) {
@@ -422,7 +458,7 @@ function renderMicStatus(status, message) {
     }
 
     const label = document.createElement("span");
-    label.textContent = "Hoor jou...";
+    label.textContent = message || "Hoor jou...";
     els.micStatus.replaceChildren(wave, label);
     return;
   }
@@ -434,15 +470,23 @@ function renderMicStatus(status, message) {
   els.micStatus.replaceChildren(dot, label);
 }
 
-function renderScoreChip() {
-  if (state.mode !== "listen") {
-    els.scoreChip.classList.add("hidden");
+function renderHearingStatus(message = "Hoor jou...") {
+  const existingWave = els.micStatus.querySelector(".wave");
+  const existingLabel = els.micStatus.querySelector("span");
+
+  if (!existingWave || !existingLabel || !els.micStatus.classList.contains("hearing")) {
+    renderMicStatus("hearing", message);
     return;
   }
 
+  existingLabel.textContent = message;
+}
+
+function renderScoreChip() {
   els.scoreChip.classList.remove("hidden");
   els.scoreCorrect.textContent = String(state.sentence.correct);
-  els.scoreMissed.textContent = String(state.sentence.missed);
+  els.scoreSupport.textContent =
+    state.sentence.correct > 0 ? "Mooi so!" : "Hou aan!";
 }
 
 function renderStars() {
@@ -470,7 +514,7 @@ function renderProgressDots() {
     dot.classList.toggle("done2", state.completed.has(index));
     dot.addEventListener("click", () => {
       state.current = index;
-      setMode(state.mode);
+      refreshUI();
     });
     els.progressDots.appendChild(dot);
   });
@@ -479,9 +523,19 @@ function renderProgressDots() {
 function resetSentenceProgress() {
   state.wordIndex = 0;
   state.expectedWord = 0;
+  state.lastTranscriptWords = [];
   state.sentence.correct = 0;
   state.sentence.missed = 0;
   clearPendingSentenceCompletion();
+}
+
+function warmSentenceAudio(words) {
+  const sentence = getCurrentSentence();
+  speechSynthesisService.preload(sentence.af, 0.85);
+
+  words.forEach((word) => {
+    speechSynthesisService.preload(normalizeWord(word), 0.85);
+  });
 }
 
 function clearPendingSentenceCompletion() {
@@ -496,8 +550,129 @@ function clearWordHighlightTimers() {
   state.wordHighlightTimers = [];
 }
 
+function stopInputMeter() {
+  if (!state.inputMeter) {
+    return;
+  }
+
+  if (state.inputMeter.frameId) {
+    cancelAnimationFrame(state.inputMeter.frameId);
+  }
+
+  if (state.inputMeter.stream) {
+    state.inputMeter.stream.getTracks().forEach((track) => track.stop());
+  }
+
+  if (state.inputMeter.source) {
+    state.inputMeter.source.disconnect();
+  }
+
+  if (state.inputMeter.analyser) {
+    state.inputMeter.analyser.disconnect();
+  }
+
+  if (state.inputMeter.audioContext && state.inputMeter.audioContext.state !== "closed") {
+    state.inputMeter.audioContext.close().catch(() => {});
+  }
+
+  state.inputMeter = null;
+}
+
+function updateInputMeter() {
+  if (!state.inputMeter) {
+    return;
+  }
+
+  const { analyser, dataArray } = state.inputMeter;
+  analyser.getByteTimeDomainData(dataArray);
+
+  let total = 0;
+  for (const value of dataArray) {
+    const normalized = (value - 128) / 128;
+    total += normalized * normalized;
+  }
+
+  const rms = Math.sqrt(total / dataArray.length);
+  const level = Math.min(1, rms * 5);
+  const multipliers = [0.45, 0.75, 1, 0.75, 0.45];
+  const bars = els.micStatus.querySelectorAll(".wave-bar");
+
+  bars.forEach((bar, index) => {
+    const scale = 0.16 + level * multipliers[index];
+    bar.style.transform = `scaleY(${scale})`;
+    bar.style.opacity = String(0.35 + level * 0.65);
+  });
+
+  state.inputMeter.frameId = requestAnimationFrame(updateInputMeter);
+}
+
+async function startInputMeter() {
+  stopInputMeter();
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!navigator.mediaDevices?.getUserMedia || !AudioContextCtor) {
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!state.listening) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+
+    const audioContext = new AudioContextCtor();
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 128;
+    analyser.smoothingTimeConstant = 0.82;
+
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    state.inputMeter = {
+      audioContext,
+      analyser,
+      source,
+      stream,
+      dataArray: new Uint8Array(analyser.frequencyBinCount),
+      frameId: null,
+    };
+
+    updateInputMeter();
+  } catch (error) {
+    console.warn("Mic level meter unavailable:", error);
+  }
+}
+
 function normalizeWord(word) {
-  return word.replace(/[.,!?;:]/g, "").toLowerCase().trim();
+  return word
+    .normalize("NFKD")
+    .replace(/['’`"]/g, "")
+    .replace(/[^a-zA-Z0-9-]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function tokenizeTranscript(transcript) {
+  return transcript
+    .split(/\s+/)
+    .map(normalizeWord)
+    .filter(Boolean);
+}
+
+function getCommonPrefixLength(previousWords, nextWords) {
+  const maxLength = Math.min(previousWords.length, nextWords.length);
+  let index = 0;
+
+  while (index < maxLength && previousWords[index] === nextWords[index]) {
+    index += 1;
+  }
+
+  return index;
 }
 
 function levenshtein(a, b) {
@@ -565,12 +740,14 @@ function startListening() {
   els.listenIcon.textContent = "⏹";
   els.listenLabel.textContent = "Stop";
   renderScoreChip();
-  renderMicStatus("ready", "🎤 Luister... Lees die sin hardop!");
+  renderHearingStatus("🎤 Luister... Lees die sin hardop!");
+  startInputMeter();
   recognitionService.start();
 }
 
 function stopListening() {
   state.listening = false;
+  stopInputMeter();
   recognitionService.stop();
   els.mainCard.classList.remove("listening");
   els.listenBtn.classList.remove("active");
@@ -578,43 +755,35 @@ function stopListening() {
   els.listenLabel.textContent = "Begin Lees";
 }
 
-function processTranscript(transcript) {
+function processTranscript(spokenWords) {
   const spans = getWordSpans();
   const expectedWords = getCurrentSentence().af.split(" ").map(normalizeWord);
-  const spokenWords = transcript.split(/\s+/).filter(Boolean);
 
   spokenWords.forEach((spokenWord) => {
-    for (let lookAhead = 0; lookAhead < 3 && state.expectedWord + lookAhead < expectedWords.length; lookAhead += 1) {
-      const index = state.expectedWord + lookAhead;
-      if (!fuzzyMatch(spokenWord, expectedWords[index])) {
-        continue;
-      }
-
-      for (let missedIndex = state.expectedWord; missedIndex < index; missedIndex += 1) {
-        if (!spans[missedIndex].classList.contains("correct") && !spans[missedIndex].classList.contains("missed")) {
-          spans[missedIndex].className = "word-span missed";
-          state.sentence.missed += 1;
-          state.totals.missed += 1;
-        }
-      }
-
-      spans[index].className = "word-span correct";
-      state.sentence.correct += 1;
-      state.totals.correct += 1;
-      state.expectedWord = index + 1;
-
-      if (state.expectedWord < spans.length) {
-        spans[state.expectedWord].className = "word-span active";
-      } else {
-        scheduleSentenceCompletion();
-      }
-
-      renderScoreChip();
-      break;
+    if (state.expectedWord >= expectedWords.length) {
+      return;
     }
+
+    const index = state.expectedWord;
+    if (!fuzzyMatch(spokenWord, expectedWords[index])) {
+      return;
+    }
+
+    spans[index].className = "word-span correct";
+    state.sentence.correct += 1;
+    state.totals.correct += 1;
+    state.expectedWord = index + 1;
+
+    if (state.expectedWord < spans.length) {
+      spans[state.expectedWord].className = "word-span active";
+    } else {
+      scheduleSentenceCompletion();
+    }
+
+    renderScoreChip();
   });
 
-  renderMicStatus("hearing", "");
+  renderHearingStatus("Hoor jou...");
 }
 
 function scheduleSentenceCompletion() {
@@ -625,94 +794,24 @@ function scheduleSentenceCompletion() {
   }, 400);
 }
 
-function sentenceComplete() {
+async function sentenceComplete() {
   stopListening();
-  els.translation.textContent = getCurrentSentence().en;
-
-  getWordSpans().forEach((span) => {
-    if (!span.classList.contains("correct") && !span.classList.contains("missed")) {
-      span.className = "word-span correct";
-    }
-  });
-
-  awardStar();
-  renderMicStatus("idle", "✅ Uitstekend! Gaan voort na die volgende sin.");
-}
-
-async function playAudio() {
-  stopListening();
-  speechSynthesisService.stop();
-  resetSentenceProgress();
-
   const sentence = getCurrentSentence();
-  const words = sentence.af.split(" ");
-  const spans = getWordSpans();
-
-  spans.forEach((span) => {
-    span.className = "word-span";
-  });
-
-  const perWord = 480;
-  words.forEach((_, index) => {
-    const timer = window.setTimeout(() => {
-      spans.forEach((span, spanIndex) => {
-        span.classList.toggle("active", spanIndex === index);
-        if (spanIndex < index) {
-          span.classList.add("done");
-        }
-      });
-    }, index * perWord);
-
-    state.wordHighlightTimers.push(timer);
-  });
-
-  try {
-    await speechSynthesisService.speak(sentence.af, 0.85);
-  } catch (error) {
-    return;
-  }
-
-  spans.forEach((span) => {
-    span.classList.remove("active");
-    span.classList.add("done");
-  });
-
   els.translation.textContent = sentence.en;
+  // Every word was already marked correct in order by processTranscript; nothing left to mark.
+
   awardStar();
-}
-
-async function readNextWord() {
-  stopListening();
-  speechSynthesisService.stop();
-
-  const spans = getWordSpans();
-  if (state.wordIndex >= spans.length) {
-    els.translation.textContent = getCurrentSentence().en;
-    awardStar();
-    state.wordIndex = 0;
-    return;
-  }
-
-  const activeSpan = spans[state.wordIndex];
-  spans.forEach((span, index) => {
-    span.classList.toggle("active", index === state.wordIndex);
-  });
-
-  activeSpan.classList.add("done");
-  state.wordIndex += 1;
+  renderMicStatus("idle", "✅ Uitstekend! Luister weer na die sin.");
 
   try {
-    await speechSynthesisService.speak(activeSpan.dataset.word, 0.85);
+    await speechSynthesisService.speak(sentence.af, 0.9);
   } catch (error) {
-    return;
+    // If TTS fails, still move on.
   }
 
-  if (state.wordIndex === spans.length) {
-    const timer = window.setTimeout(() => {
-      els.translation.textContent = getCurrentSentence().en;
-      awardStar();
-    }, 400);
-    state.wordHighlightTimers.push(timer);
+  const isLast = state.current >= SENTENCES.length - 1;
+  if (!isLast) {
+    navigate(1);
   }
 }
 
@@ -743,7 +842,7 @@ function navigate(direction) {
   }
 
   state.current = nextIndex;
-  setMode(state.mode);
+  refreshUI();
 }
 
 function awardStar() {
@@ -778,7 +877,6 @@ function showCelebration() {
 
 function restart() {
   state.current = 0;
-  state.mode = "listen";
   state.completed.clear();
   state.totals.correct = 0;
   state.totals.missed = 0;
@@ -792,7 +890,7 @@ function restart() {
   els.celebration.classList.remove("show");
 
   renderStars();
-  setMode("listen");
+  refreshUI();
 }
 
 function confetti(count) {

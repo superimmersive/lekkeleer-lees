@@ -15,19 +15,11 @@
 
   <div class="stars-bar" id="starsBar" aria-label="Vorderingsterre"></div>
 
-  <div class="mode-bar">
-    <button class="mode-btn" id="modeListenBtn" data-mode="listen" type="button">🎤 Lees Hardop</button>
-    <button class="mode-btn" id="modeTapBtn" data-mode="tap" type="button">👆 Tik Modus</button>
-    <button class="mode-btn" id="modePlayBtn" data-mode="play" type="button">🔊 Luister</button>
-  </div>
-
   <div class="voice-bar">
     <button class="voice-btn" id="voiceAdriBtn" data-voice="Adri" type="button">🎀 Adri (vrou)</button>
     <button class="voice-btn" id="voiceWillemBtn" data-voice="Willem" type="button">🧔 Willem (man)</button>
     <div class="tts-status ok" id="ttsStatus">✅ Azure TTS</div>
   </div>
-
-  <div class="tip-bar" id="tipBar">🎤 Tik <strong>Begin Lees</strong> en lees die sin hardop!</div>
 
   <div class="card-wrap">
     <div class="sentence-card" id="mainCard">
@@ -56,19 +48,19 @@
 
     <div class="score-chip hidden" id="scoreChip">
       <span class="score-correct">✓ <span id="scoreCorrect">0</span></span>
-      <span class="score-missed">✗ <span id="scoreMissed">0</span></span>
+      <span class="score-support" id="scoreSupport">Hou aan!</span>
     </div>
 
     <div class="controls" id="controls">
       <button class="ctrl-btn btn-prev" id="prevBtn" type="button"><span class="icon">◀</span>Terug</button>
       <button class="ctrl-btn btn-listen" id="listenBtn" type="button"><span class="icon" id="listenIcon">🎤</span><span id="listenLabel">Begin Lees</span></button>
-      <button class="ctrl-btn btn-play hidden" id="playBtn" type="button"><span class="icon">🔊</span>Speel</button>
-      <button class="ctrl-btn btn-word hidden" id="wordBtn" type="button"><span class="icon">👆</span>Woord</button>
       <button class="ctrl-btn btn-next" id="nextBtn" type="button">Volgende<span class="icon">▶</span></button>
     </div>
 
     <div class="progress-dots" id="progressDots"></div>
   </div>
+
+  <div class="review-note">Review build: removed tip bar.</div>
 
   <script src="./app.js"></script>
 </body>
