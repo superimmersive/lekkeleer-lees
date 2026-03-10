@@ -1,11 +1,107 @@
-const SENTENCES = [
-  { af: "Die kat sit.", en: "The cat sits.", emoji: "🐱" },
-  { af: "Die man staan.", en: "The man stands.", emoji: "🧍" },
-  { af: "Die kat sit langs die man.", en: "The cat sits next to the man.", emoji: "🐱🧍" },
-  { af: "Die kas is bruin.", en: "The cupboard is brown.", emoji: "🗄️" },
-  { af: "Die mat is voor die kas.", en: "The mat is in front of the cupboard.", emoji: "🟫" },
-  { af: "Die bad is vol.", en: "The bath is full.", emoji: "🛁" },
-  { af: "Die kat sit op die mat.", en: "The cat sits on the mat.", emoji: "🐱" },
+const CONTENT = [
+  {
+    term: 1,
+    week: 1,
+    sentences: [
+      { af: "Die kat sit.", en: "The cat sits.", emoji: "🐱" },
+      { af: "Die man staan.", en: "The man stands.", emoji: "🧍" },
+      { af: "Die kat sit langs die man.", en: "The cat sits next to the man.", emoji: "🐱🧍" },
+      { af: "Die kas is bruin.", en: "The cupboard is brown.", emoji: "🗄️" },
+      { af: "Die mat is voor die kas.", en: "The mat is in front of the cupboard.", emoji: "🟫" },
+      { af: "Die bad is vol.", en: "The bath is full.", emoji: "🛁" },
+      { af: "Die kat sit op die mat.", en: "The cat sits on the mat.", emoji: "🐱" },
+    ],
+  },
+  {
+    term: 1,
+    week: 2,
+    sentences: [
+      { af: "Ek hou van eet.", en: "I like eating.", emoji: "😊" },
+      { af: "Die emmer is vol.", en: "The bucket is full.", emoji: "🪣" },
+      { af: "Daar is elf bokke.", en: "There are eleven goats.", emoji: "🐐" },
+      { af: "Die hond slaap op die bed.", en: "The dog sleeps on the bed.", emoji: "🐶🛏️" },
+      { af: "Ek ken vir Ben.", en: "I know Ben.", emoji: "🧒" },
+      { af: "Die kat is vet.", en: "The cat is fat.", emoji: "🐱" },
+      { af: "Hy dra 'n blou pet.", en: "He wears a blue cap.", emoji: "🧢" },
+    ],
+  },
+  {
+    term: 1,
+    week: 3,
+    sentences: [
+      { af: "Die vis swem vinnig.", en: "The fish swims fast.", emoji: "🐟" },
+      { af: "Ek mis my ma.", en: "I miss my mom.", emoji: "👩" },
+      { af: "Sy sit op die stoel.", en: "She sits on the chair.", emoji: "🪑" },
+      { af: "Die ink is swart.", en: "The ink is black.", emoji: "🖊️" },
+      { af: "Die kos is min.", en: "The food is little.", emoji: "🍽️" },
+      { af: "Dit klink na pret.", en: "That sounds like fun.", emoji: "🎉" },
+      { af: "Hulle hou van sing.", en: "They like singing.", emoji: "🎵" },
+    ],
+  },
+  {
+    term: 1,
+    week: 4,
+    sentences: [
+      { af: "Die pot is vol.", en: "The pot is full.", emoji: "🍲" },
+      { af: "Daar is kos in die bord.", en: "There is food on the plate.", emoji: "🍽️" },
+      { af: "My maag is vol.", en: "My tummy is full.", emoji: "😊" },
+      { af: "Daar vlieg 'n mot.", en: "A moth is flying.", emoji: "🦋" },
+      { af: "Die appel is vrot.", en: "The apple is rotten.", emoji: "🍎" },
+      { af: "Sy naam is Tom.", en: "His name is Tom.", emoji: "🧒" },
+      { af: "Ek hou van die rooi blom.", en: "I like the red flower.", emoji: "🌺" },
+    ],
+  },
+  {
+    term: 1,
+    week: 5,
+    sentences: [
+      { af: "Ons ry in die bus.", en: "We ride in the bus.", emoji: "🚌" },
+      { af: "Hy is baie fluks.", en: "He is very hard-working.", emoji: "💪" },
+      { af: "Ek is lus vir koeldrank.", en: "I feel like a cooldrink.", emoji: "🥤" },
+      { af: "Ek het twee susters.", en: "I have two sisters.", emoji: "👧👧" },
+      { af: "Sy dra 'n rooi mus.", en: "She wears a red beanie.", emoji: "🧣" },
+      { af: "Hy blus die vuur.", en: "He puts out the fire.", emoji: "🚒" },
+    ],
+  },
+  {
+    term: 1,
+    week: 6,
+    sentences: [
+      { af: "Hy lees 'n boek.", en: "He reads a book.", emoji: "📖" },
+      { af: "Ben het vir Piet gaan soek.", en: "Ben went to look for Piet.", emoji: "🕵️" },
+      { af: "My voet is seer.", en: "My foot is sore.", emoji: "🦶" },
+      { af: "Ek dra geel skoene.", en: "I wear yellow shoes.", emoji: "🟡👟" },
+      { af: "Hy is baie soet.", en: "He is very sweet/well-behaved.", emoji: "😊" },
+      { af: "My boet speel buite.", en: "My brother plays outside.", emoji: "🏃" },
+      { af: "Ons moet swem.", en: "We must swim.", emoji: "🏊" },
+    ],
+  },
+  {
+    term: 1,
+    week: 7,
+    sentences: [
+      { af: "Hy spring oor die muur.", en: "He jumps over the wall.", emoji: "🤸" },
+      { af: "Die vuur is warm.", en: "The fire is warm.", emoji: "🔥" },
+      { af: "Die suurlemoen is suur.", en: "The lemon is sour.", emoji: "🍋" },
+      { af: "Daar is mense wat die huis huur.", en: "There are people who rent the house.", emoji: "🏠" },
+      { af: "Die rok is baie duur.", en: "The dress is very expensive.", emoji: "👗" },
+      { af: "Die man sit langs die vuur.", en: "The man sits next to the fire.", emoji: "🧍🔥" },
+      { af: "Die motor is duur.", en: "The car is expensive.", emoji: "🚗" },
+    ],
+  },
+  {
+    term: 1,
+    week: 8,
+    sentences: [
+      { af: "Die deur is bruin.", en: "The door is brown.", emoji: "🚪" },
+      { af: "Die kos het 'n lekker geur.", en: "The food has a nice smell.", emoji: "😋" },
+      { af: "Ek wonder wat gaan gebeur.", en: "I wonder what will happen.", emoji: "🤔" },
+      { af: "Sy loop deur die huis.", en: "She walks through the house.", emoji: "🚶‍♀️" },
+      { af: "My neus jeuk.", en: "My nose itches.", emoji: "👃" },
+      { af: "Hy hou van neute.", en: "He likes nuts.", emoji: "🥜" },
+      { af: "Water loop deur die geut.", en: "Water runs through the gutter.", emoji: "💧" },
+    ],
+  },
 ];
 
 // TODO: move Azure TTS behind a backend before production use.
@@ -29,6 +125,7 @@ function isElectronRuntime() {
 }
 
 const state = {
+  unitIndex: 0,
   current: 0,
   listening: false,
   recognition: null,
@@ -59,6 +156,8 @@ const state = {
 
 const els = {
   starsBar: document.getElementById("starsBar"),
+  unitLabel: document.getElementById("unitLabel"),
+  weekSelector: document.getElementById("weekSelector"),
   voiceButtons: Array.from(document.querySelectorAll("[data-voice]")),
   ttsStatus: document.getElementById("ttsStatus"),
   mainCard: document.getElementById("mainCard"),
@@ -353,11 +452,39 @@ function init() {
   bindEvents();
   renderStars();
   renderVoiceButtons();
+  renderWeekButtons();
   refreshUI();
   speechSynthesisService.loadSdk().catch(() => {});
 }
 
 function bindEvents() {
+  if (els.weekSelector) {
+    els.weekSelector.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const button = target.closest(".week-btn");
+      if (!button) {
+        return;
+      }
+
+      const index = Number(button.dataset.weekIndex || "0");
+      if (Number.isNaN(index) || index === state.unitIndex || index < 0 || index >= CONTENT.length) {
+        return;
+      }
+
+      state.unitIndex = index;
+      state.current = 0;
+      state.completed = new Set();
+      state.totals.correct = 0;
+      state.totals.missed = 0;
+      refreshUI();
+      renderWeekButtons();
+    });
+  }
+
   els.voiceButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setVoice(button.dataset.voice);
@@ -370,6 +497,14 @@ function bindEvents() {
   els.restartBtn.addEventListener("click", restart);
 
   document.addEventListener("keydown", handleKeydown);
+}
+
+function getCurrentUnit() {
+  return CONTENT[state.unitIndex] || CONTENT[0];
+}
+
+function getCurrentSentences() {
+  return getCurrentUnit().sentences;
 }
 
 function handleKeydown(event) {
@@ -394,7 +529,7 @@ function handleKeydown(event) {
 }
 
 function getCurrentSentence() {
-  return SENTENCES[state.current];
+  return getCurrentSentences()[state.current];
 }
 
 function getWordSpans() {
@@ -418,6 +553,7 @@ function refreshUI() {
   stopListening();
   speechSynthesisService.stop();
   renderSentence();
+  renderUnitLabel();
   renderMicStatus("idle", hasSpeechRecognition ? "🎤 Gereed — tik Begin Lees!" : "Gebruik Chrome vir spraakherkenning");
   renderScoreChip();
   renderProgressDots();
@@ -428,7 +564,7 @@ function renderSentence() {
   const words = sentence.af.split(" ");
 
   els.sentenceEmoji.textContent = sentence.emoji;
-  els.sentenceNum.textContent = `${state.current + 1} / ${SENTENCES.length}`;
+  els.sentenceNum.textContent = `${state.current + 1} / ${getCurrentSentences().length}`;
   els.translation.textContent = "";
   els.sentenceText.replaceChildren();
 
@@ -443,6 +579,26 @@ function renderSentence() {
   });
 
   warmSentenceAudio(words);
+}
+
+function renderUnitLabel() {
+  const unit = getCurrentUnit();
+  if (!els.unitLabel || !unit) {
+    return;
+  }
+
+  els.unitLabel.textContent = `Term ${unit.term} · Week ${unit.week}`;
+}
+
+function renderWeekButtons() {
+  if (!els.weekSelector) {
+    return;
+  }
+
+  const buttons = Array.from(els.weekSelector.querySelectorAll(".week-btn"));
+  buttons.forEach((button, index) => {
+    button.classList.toggle("active", index === state.unitIndex);
+  });
 }
 
 function renderMicStatus(status, message) {
@@ -492,7 +648,8 @@ function renderScoreChip() {
 function renderStars() {
   els.starsBar.replaceChildren();
 
-  for (let index = 0; index < SENTENCES.length; index += 1) {
+  const sentences = getCurrentSentences();
+  for (let index = 0; index < sentences.length; index += 1) {
     const star = document.createElement("span");
     star.className = "star";
     if (index < state.completed.size) {
@@ -506,7 +663,8 @@ function renderStars() {
 function renderProgressDots() {
   els.progressDots.replaceChildren();
 
-  SENTENCES.forEach((_, index) => {
+  const sentences = getCurrentSentences();
+  sentences.forEach((_, index) => {
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = "dot";
@@ -809,7 +967,7 @@ async function sentenceComplete() {
     // If TTS fails, still move on.
   }
 
-  const isLast = state.current >= SENTENCES.length - 1;
+  const isLast = state.current >= getCurrentSentences().length - 1;
   if (!isLast) {
     navigate(1);
   }
@@ -837,7 +995,7 @@ async function speakWord(word, span) {
 
 function navigate(direction) {
   const nextIndex = state.current + direction;
-  if (nextIndex < 0 || nextIndex >= SENTENCES.length) {
+  if (nextIndex < 0 || nextIndex >= getCurrentSentences().length) {
     return;
   }
 
@@ -854,7 +1012,7 @@ function awardStar() {
   renderStars();
   renderProgressDots();
 
-  if (state.completed.size === SENTENCES.length) {
+  if (state.completed.size === getCurrentSentences().length) {
     window.setTimeout(showCelebration, 900);
   }
 }
