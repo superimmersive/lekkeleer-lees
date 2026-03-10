@@ -1,0 +1,24 @@
+LekkeLeer Lees – Feature Reference
+==================================
+
+Use these names in prompts when you want to refer to each feature.
+
+
+1. TAP-TO-HEAR (word playback)
+------------------------------
+• What it does: User taps a word in the sentence and that word is spoken aloud via Azure TTS.
+• In code: speakWord(); each word span has a click listener that calls it.
+• Use in prompts: "tap-to-hear", "word tap playback", "TTS when you tap a word".
+
+
+2. READ-ALOUD RECOGNITION (listening mode)
+------------------------------------------
+• What it does: User taps "Begin Lees" → the app uses the browser’s speech recognition (Web Speech API), listens to the learner, and matches what they say to the sentence (left-to-right, fuzzy match). Words turn green as they are recognised.
+• In code: recognitionService, processTranscript(), fuzzyMatch(); "Begin Lees" starts this flow.
+• Use in prompts: "read-aloud recognition", "speech recognition", "listening mode", "Begin Lees flow".
+
+
+Quick reference
+---------------
+Tap a word → hear it spoken     →  Tap-to-hear / word playback
+"Begin Lees" → mic listens and matches words  →  Read-aloud recognition / listening mode

@@ -574,7 +574,8 @@ function renderSentence() {
     span.textContent = word;
     span.dataset.index = String(index);
     span.dataset.word = normalizeWord(word);
-    span.addEventListener("click", () => speakWord(span.dataset.word, span));
+    const spoken = ttsWord(word);
+    span.addEventListener("click", () => speakWord(spoken, span));
     els.sentenceText.appendChild(span);
   });
 
@@ -692,7 +693,7 @@ function warmSentenceAudio(words) {
   speechSynthesisService.preload(sentence.af, 0.85);
 
   words.forEach((word) => {
-    speechSynthesisService.preload(normalizeWord(word), 0.85);
+    speechSynthesisService.preload(ttsWord(word), 0.85);
   });
 }
 
@@ -813,6 +814,11 @@ function normalizeWord(word) {
     .replace(/[^a-zA-Z0-9-]/g, "")
     .toLowerCase()
     .trim();
+}
+
+// Strip leading/trailing punctuation for TTS so "sit." → "sit", keeping mid-word apostrophes
+function ttsWord(word) {
+  return word.replace(/^[^\w']+|[^\w']+$/g, "");
 }
 
 function tokenizeTranscript(transcript) {
@@ -974,7 +980,11 @@ async function sentenceComplete() {
 }
 
 async function speakWord(word, span) {
-  speechSynthesisService.stop();
+  if (state.currentAudio) {
+    state.currentAudio.pause();
+    state.currentAudio.currentTime = 0;
+    state.currentAudio = null;
+  }
 
   getWordSpans().forEach((wordSpan) => {
     if (wordSpan !== span) {
