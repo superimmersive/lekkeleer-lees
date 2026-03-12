@@ -140,6 +140,10 @@ const state = {
   sdkLoading: false,
   sdkResolvers: [],
   ttsCache: new Map(),
+  ttsReady: false,
+  playingSentence: false,
+  karaokeCancel: null,
+  ttsTimings: new Map(),
   ttsPending: new Map(),
   wordHighlightTimers: [],
   pendingSentenceCompletion: null,
@@ -178,9 +182,11 @@ const els = {
   listenBtn: document.getElementById("listenBtn"),
   listenIcon: document.getElementById("listenIcon"),
   listenLabel: document.getElementById("listenLabel"),
+  playSentenceBtn: document.getElementById("playSentenceBtn"),
   nextBtn: document.getElementById("nextBtn"),
   progressDots: document.getElementById("progressDots"),
   restartBtn: document.getElementById("restartBtn"),
+  feedbackBtn: document.getElementById("feedbackBtn"),
 };
 
 const speechSynthesisService = {
@@ -236,12 +242,19 @@ const speechSynthesisService = {
     const synthesizer = new SpeechSDK.SpeechSynthesizer(config, null);
     state.currentSynth = synthesizer;
 
+    const wordBoundaries = [];
+    synthesizer.wordBoundary = (_s, e) => {
+      wordBoundaries.push({ offset: e.audioOffset / 10000000, text: e.text });
+    };
+
     const ratePercent = rate === 1 ? "+0%" : `${Math.round((rate - 1) * 100)}%`;
     const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='af-ZA'>
       <voice name='${AZURE_CONFIG.voices[state.currentVoice]}'>
         <prosody rate='${ratePercent}'>${escapeXml(text)}</prosody>
       </voice>
     </speak>`;
+
+    const cacheKey = this.buildCacheKey(text, rate);
 
     return new Promise((resolve, reject) => {
       synthesizer.speakSsmlAsync(
@@ -256,6 +269,8 @@ const speechSynthesisService = {
             reject(result);
             return;
           }
+
+          state.ttsTimings.set(cacheKey, wordBoundaries);
 
           const blob = new Blob([result.audioData], { type: "audio/wav" });
           resolve(URL.createObjectURL(blob));
@@ -339,6 +354,11 @@ const speechSynthesisService = {
   stop() {
     clearWordHighlightTimers();
     clearPendingSentenceCompletion();
+    if (state.karaokeCancel) {
+      state.karaokeCancel();
+      state.karaokeCancel = null;
+      state.playingSentence = false;
+    }
 
     if (state.currentSynth) {
       try {
@@ -494,7 +514,18 @@ function bindEvents() {
   els.prevBtn.addEventListener("click", () => navigate(-1));
   els.nextBtn.addEventListener("click", () => navigate(1));
   els.listenBtn.addEventListener("click", toggleListen);
+  els.playSentenceBtn.addEventListener("click", playSentence);
   els.restartBtn.addEventListener("click", restart);
+
+  if (els.feedbackBtn) {
+    els.feedbackBtn.addEventListener("click", () => {
+      window.open(
+        "https://docs.google.com/forms/d/e/1FAIpQLScBCnQANFR8c3q0xi2zsc3Cf4Jo9SgbvggsGCr2Slbv3N-6PA/viewform",
+        "_blank",
+        "noopener"
+      );
+    });
+  }
 
   document.addEventListener("keydown", handleKeydown);
 }
@@ -570,7 +601,7 @@ function renderSentence() {
 
   words.forEach((word, index) => {
     const span = document.createElement("span");
-    span.className = `word-span${index === 0 ? " active" : ""}`;
+    span.className = "word-span";
     span.textContent = word;
     span.dataset.index = String(index);
     span.dataset.word = normalizeWord(word);
@@ -690,10 +721,31 @@ function resetSentenceProgress() {
 
 function warmSentenceAudio(words) {
   const sentence = getCurrentSentence();
-  speechSynthesisService.preload(sentence.af, 0.85);
+  state.ttsReady = false;
+  applyTtsReadyState();
 
-  words.forEach((word) => {
-    speechSynthesisService.preload(ttsWord(word), 0.85);
+  const promises = [
+    speechSynthesisService.getOrCreateAudioUrl(sentence.af, 0.85).catch(() => {}),
+    speechSynthesisService.getOrCreateAudioUrl(sentence.af, 0.9).catch(() => {}),
+    ...words.map((word) =>
+      speechSynthesisService.getOrCreateAudioUrl(ttsWord(word), 0.85).catch(() => {})
+    ),
+  ];
+
+  Promise.all(promises).then(() => {
+    state.ttsReady = true;
+    applyTtsReadyState();
+  });
+}
+
+function applyTtsReadyState() {
+  const loading = !state.ttsReady;
+  els.mainCard.classList.toggle("tts-loading", loading);
+  els.playSentenceBtn.disabled = loading;
+  els.listenBtn.disabled = loading;
+
+  getWordSpans().forEach((span, i) => {
+    span.style.animationDelay = loading ? `${i * 0.15}s` : "";
   });
 }
 
@@ -889,6 +941,7 @@ function toggleListen() {
 }
 
 function startListening() {
+  stopSentencePlayback();
   recognitionService.ensureReady();
   speechSynthesisService.stop();
   resetSentenceProgress();
@@ -903,6 +956,7 @@ function startListening() {
   els.listenBtn.classList.add("active");
   els.listenIcon.textContent = "⏹";
   els.listenLabel.textContent = "Stop";
+  els.playSentenceBtn.disabled = true;
   renderScoreChip();
   renderHearingStatus("🎤 Luister... Lees die sin hardop!");
   startInputMeter();
@@ -917,6 +971,8 @@ function stopListening() {
   els.listenBtn.classList.remove("active");
   els.listenIcon.textContent = "🎤";
   els.listenLabel.textContent = "Begin Lees";
+  els.playSentenceBtn.disabled = false;
+  getWordSpans().forEach((s) => { s.className = "word-span"; });
 }
 
 function processTranscript(spokenWords) {
@@ -979,7 +1035,120 @@ async function sentenceComplete() {
   }
 }
 
+function stopSentencePlayback() {
+  if (state.karaokeCancel) {
+    state.karaokeCancel();
+    state.karaokeCancel = null;
+  }
+  if (state.playingSentence) {
+    state.playingSentence = false;
+    getWordSpans().forEach((s) => s.classList.remove("tts-active"));
+    els.playSentenceBtn.disabled = false;
+    els.listenBtn.disabled = false;
+  }
+}
+
+async function playSentence() {
+  const sentence = getCurrentSentence();
+  if (!sentence) return;
+
+  if (state.listening) {
+    toggleListen();
+  }
+  stopSentencePlayback();
+
+  if (state.currentAudio) {
+    state.currentAudio.pause();
+    state.currentAudio.currentTime = 0;
+    state.currentAudio = null;
+  }
+
+  const spans = getWordSpans();
+  spans.forEach((s) => { s.className = "word-span"; });
+  state.playingSentence = true;
+  els.playSentenceBtn.disabled = true;
+  els.listenBtn.disabled = true;
+
+  try {
+    const rate = 0.9;
+    const url = await speechSynthesisService.getOrCreateAudioUrl(sentence.af, rate);
+    const key = speechSynthesisService.buildCacheKey(sentence.af, rate);
+    const timings = state.ttsTimings.get(key) || [];
+
+    await playWithKaraokeHighlight(url, timings, spans);
+  } catch (_) {
+    // ignore TTS errors or cancellation
+  }
+
+  state.playingSentence = false;
+  state.karaokeCancel = null;
+  spans.forEach((s) => s.classList.remove("tts-active"));
+  els.playSentenceBtn.disabled = false;
+  els.listenBtn.disabled = false;
+}
+
+function playWithKaraokeHighlight(url, timings, spans) {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(url);
+    state.currentAudio = audio;
+    let activeIndex = -1;
+    let cancelled = false;
+
+    state.karaokeCancel = () => {
+      cancelled = true;
+      audio.pause();
+      audio.currentTime = 0;
+      if (state.currentAudio === audio) state.currentAudio = null;
+      resolve();
+    };
+
+    function tick() {
+      if (cancelled || audio.ended) return;
+      if (audio.paused && audio.currentTime === 0) return;
+
+      const t = audio.currentTime;
+      let newIndex = -1;
+      for (let i = timings.length - 1; i >= 0; i--) {
+        if (t >= timings[i].offset) {
+          newIndex = i;
+          break;
+        }
+      }
+
+      if (newIndex !== activeIndex) {
+        if (activeIndex >= 0 && activeIndex < spans.length) {
+          spans[activeIndex].classList.remove("tts-active");
+        }
+        if (newIndex >= 0 && newIndex < spans.length) {
+          spans[newIndex].classList.add("tts-active");
+        }
+        activeIndex = newIndex;
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    audio.onplay = () => requestAnimationFrame(tick);
+
+    audio.onended = () => {
+      if (state.currentAudio === audio) state.currentAudio = null;
+      resolve();
+    };
+
+    audio.onerror = () => {
+      if (state.currentAudio === audio) state.currentAudio = null;
+      reject(new Error("Audio playback failed"));
+    };
+
+    audio.play().catch(reject);
+  });
+}
+
 async function speakWord(word, span) {
+  if (state.playingSentence) {
+    stopSentencePlayback();
+  }
+
   if (state.currentAudio) {
     state.currentAudio.pause();
     state.currentAudio.currentTime = 0;
@@ -987,9 +1156,7 @@ async function speakWord(word, span) {
   }
 
   getWordSpans().forEach((wordSpan) => {
-    if (wordSpan !== span) {
-      wordSpan.classList.remove("active");
-    }
+    wordSpan.className = "word-span";
   });
 
   span.classList.add("active");

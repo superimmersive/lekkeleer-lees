@@ -18,7 +18,21 @@ Use these names in prompts when you want to refer to each feature.
 • Use in prompts: "read-aloud recognition", "speech recognition", "listening mode", "Begin Lees flow".
 
 
+3. SPEEL (sentence playback with karaoke highlight)
+----------------------------------------------------
+• What it does: User taps the "Speel" (🔊) button on the card and the full sentence is spoken aloud via Azure TTS. As the audio plays, each word is highlighted in yellow in real time (karaoke-style), following along with the narration.
+• In code: playSentence(), playWithKaraokeHighlight(); word boundary timings are captured from Azure SDK during synthesis and stored in state.ttsTimings. A requestAnimationFrame loop syncs audio.currentTime with the timings to toggle a .tts-active class on each word span.
+• Use in prompts: "Speel", "sentence playback", "karaoke highlight", "play sentence TTS".
+
+
 Quick reference
 ---------------
 Tap a word → hear it spoken     →  Tap-to-hear / word playback
 "Begin Lees" → mic listens and matches words  →  Read-aloud recognition / listening mode
+"Speel" → full sentence TTS with karaoke word tracking  →  Speel / sentence playback
+
+
+
+cd "A:\SI-bitbucket-projects\SaaS_LearningApp\lekkeleer-lees"
+python -m http.server 8080
+http://localhost:8080/

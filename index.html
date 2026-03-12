@@ -6,12 +6,17 @@
   <title>LekkeLeer – Lees Saam!</title>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="preload" href="https://aka.ms/csspeech/jsbrowserpackageraw" as="script">
 </head>
 <body>
   <header>
     <div class="logo">Lekke<span>Leer</span></div>
     <div class="header-badge">📖 Lees Saam</div>
   </header>
+
+  <div class="how-to-wrap">
+    <a href="./how-to.html" class="corner-link" target="_blank" rel="noopener">How To Guide</a>
+  </div>
 
   <div class="unit-label" id="unitLabel">Term 1 · Week 1</div>
   <div class="week-selector" id="weekSelector" aria-label="Kies week">
@@ -39,6 +44,11 @@
       <div class="sentence-emoji" id="sentenceEmoji">🐱</div>
       <div class="sentence-text" id="sentenceText"></div>
       <div class="translation" id="translation"></div>
+      <div class="tts-loading-indicator">
+        Laai klank<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+      </div>
+      <button class="ctrl-btn btn-play card-btn-left" id="playSentenceBtn" type="button"><span class="icon">🔊</span><span>Speel</span></button>
+      <button class="ctrl-btn btn-listen card-btn-right" id="listenBtn" type="button"><span class="icon" id="listenIcon">🎤</span><span id="listenLabel">Begin Lees</span></button>
     </div>
 
     <div class="celebration" id="celebration">
@@ -65,14 +75,19 @@
 
     <div class="controls" id="controls">
       <button class="ctrl-btn btn-prev" id="prevBtn" type="button"><span class="icon">◀</span>Terug</button>
-      <button class="ctrl-btn btn-listen" id="listenBtn" type="button"><span class="icon" id="listenIcon">🎤</span><span id="listenLabel">Begin Lees</span></button>
       <button class="ctrl-btn btn-next" id="nextBtn" type="button">Volgende<span class="icon">▶</span></button>
     </div>
 
     <div class="progress-dots" id="progressDots"></div>
   </div>
 
-  <div class="review-note">Review build: fixed tap-to-hear so all words play audio including last word of each sentence.</div>
+  <div class="review-note">Review build: stopListening resets word spans so errors/warnings clear grey/green states.</div>
+
+  <footer class="app-footer">
+    <button type="button" class="feedback-link" id="feedbackBtn">
+      💬 Stuur terugvoer
+    </button>
+  </footer>
 
   <script src="./app.js"></script>
 </body>
