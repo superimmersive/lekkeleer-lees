@@ -134,7 +134,6 @@ const state = {
   wordIndex: 0,
   expectedWord: 0,
   currentVoice: "Adri",
-  currentSynth: null,
   currentAudio: null,
   sdkReady: false,
   sdkLoading: false,
@@ -240,7 +239,6 @@ const speechSynthesisService = {
     config.speechSynthesisVoiceName = AZURE_CONFIG.voices[state.currentVoice];
 
     const synthesizer = new SpeechSDK.SpeechSynthesizer(config, null);
-    state.currentSynth = synthesizer;
 
     const wordBoundaries = [];
     synthesizer.wordBoundary = (_s, e) => {
@@ -260,9 +258,6 @@ const speechSynthesisService = {
       synthesizer.speakSsmlAsync(
         ssml,
         (result) => {
-          if (state.currentSynth === synthesizer) {
-            state.currentSynth = null;
-          }
           synthesizer.close();
 
           if (result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
@@ -276,9 +271,6 @@ const speechSynthesisService = {
           resolve(URL.createObjectURL(blob));
         },
         (error) => {
-          if (state.currentSynth === synthesizer) {
-            state.currentSynth = null;
-          }
           synthesizer.close();
           reject(error);
         }
@@ -358,15 +350,6 @@ const speechSynthesisService = {
       state.karaokeCancel();
       state.karaokeCancel = null;
       state.playingSentence = false;
-    }
-
-    if (state.currentSynth) {
-      try {
-        state.currentSynth.close();
-      } catch (error) {
-        console.warn("Unable to stop synthesizer:", error);
-      }
-      state.currentSynth = null;
     }
 
     if (state.currentAudio) {
@@ -692,16 +675,33 @@ function renderStars() {
   }
 }
 
+function isSentenceCached(sentence) {
+  const words = sentence.af.split(" ");
+  const keys = [
+    speechSynthesisService.buildCacheKey(sentence.af, 0.85),
+    speechSynthesisService.buildCacheKey(sentence.af, 0.9),
+    ...words.map((w) => speechSynthesisService.buildCacheKey(ttsWord(w), 0.85)),
+  ];
+  return keys.every((k) => state.ttsCache.has(k));
+}
+
 function renderProgressDots() {
   els.progressDots.replaceChildren();
 
   const sentences = getCurrentSentences();
-  sentences.forEach((_, index) => {
+  sentences.forEach((sentence, index) => {
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = "dot";
     dot.classList.toggle("current", index === state.current);
     dot.classList.toggle("done2", state.completed.has(index));
+
+    const cached = index === state.current || isSentenceCached(sentence);
+    if (!cached) {
+      dot.classList.add("locked");
+      dot.disabled = true;
+    }
+
     dot.addEventListener("click", () => {
       state.current = index;
       refreshUI();
@@ -767,7 +767,9 @@ function preloadWeekAudio(gen) {
           speechSynthesisService.getOrCreateAudioUrl(ttsWord(w), 0.85).catch(() => {})
         ),
       ];
-      return Promise.all(batch);
+      return Promise.all(batch).then(() => {
+        if (gen === preloadGeneration) renderProgressDots();
+      });
     });
   });
 }

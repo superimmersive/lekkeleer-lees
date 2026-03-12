@@ -772,6 +772,12 @@ button.dot {
   border-color: var(--green);
 }
 
+.dot.locked {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .celebration {
   display: none;
   flex-direction: column;
