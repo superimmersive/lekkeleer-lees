@@ -719,7 +719,10 @@ function resetSentenceProgress() {
   clearPendingSentenceCompletion();
 }
 
+let preloadGeneration = 0;
+
 function warmSentenceAudio(words) {
+  preloadGeneration++;
   const sentence = getCurrentSentence();
   state.ttsReady = false;
   applyTtsReadyState();
@@ -732,9 +735,40 @@ function warmSentenceAudio(words) {
     ),
   ];
 
+  const gen = preloadGeneration;
   Promise.all(promises).then(() => {
+    if (gen !== preloadGeneration) return;
     state.ttsReady = true;
     applyTtsReadyState();
+    preloadWeekAudio(gen);
+  });
+}
+
+function preloadWeekAudio(gen) {
+  const sentences = getCurrentSentences();
+  const currentIdx = state.current;
+  const total = sentences.length;
+
+  const order = [];
+  for (let offset = 1; offset < total; offset++) {
+    order.push((currentIdx + offset) % total);
+  }
+
+  let chain = Promise.resolve();
+  order.forEach((idx) => {
+    chain = chain.then(() => {
+      if (gen !== preloadGeneration) return;
+      const sentence = sentences[idx];
+      const words = sentence.af.split(" ");
+      const batch = [
+        speechSynthesisService.getOrCreateAudioUrl(sentence.af, 0.85).catch(() => {}),
+        speechSynthesisService.getOrCreateAudioUrl(sentence.af, 0.9).catch(() => {}),
+        ...words.map((w) =>
+          speechSynthesisService.getOrCreateAudioUrl(ttsWord(w), 0.85).catch(() => {})
+        ),
+      ];
+      return Promise.all(batch);
+    });
   });
 }
 

@@ -1,0 +1,28 @@
+LekkeLeer – TODO / Roadmap
+==========================
+
+1. CURRICULUM STRUCTURE EXPANSION
+---------------------------------
+Expand from Afrikaans reading only to a full subject/activity structure:
+
+  Term1 → Week1 → Afrikaans
+    - Lees Sinne (reading sentences) — CURRENT
+    - Spellwoorde (spelling words)
+
+  Term1 → Week1 → English (Locked)
+    - Reading Sentences
+    - Spelling Words
+
+  Term1 → Week1 → Maths/Wiskunde (Locked)
+    - Addition
+    - Subtraction
+    - Multiply
+    - Divide
+
+Key decisions:
+  - Navigation: tab-based (subject row + activity row) vs card-based landing page
+  - Data structure: nested CURRICULUM object (term > week > subject > activity)
+  - Locking: visual lock icon + greyed state for English & Maths
+  - Reuse: reading engine shared for Afrikaans & English (swap TTS voice + recognition lang)
+  - Spelling: new interaction mode (reuse tap-to-hear)
+  - Maths: new interaction type (problem cards, input/answer flow)
