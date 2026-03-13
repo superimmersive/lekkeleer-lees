@@ -100,12 +100,12 @@ async function init() {
   const resetBtn = document.getElementById('statsResetBtn');
   if (resetBtn) {
     resetBtn.addEventListener('click', async () => {
-      if (!confirm('Seker? Jy wil al jou vordering uitvee? / Sure you want to reset all progress?')) return;
+      if (!confirm('Sure you want to reset all progress?')) return;
       const ok = await resetProgress();
       if (ok) {
         window.location.href = './index.html';
       } else {
-        alert('Kon nie herstel nie. Probeer weer. / Could not reset. Try again.');
+        alert('Could not reset. Try again.');
       }
     });
   }

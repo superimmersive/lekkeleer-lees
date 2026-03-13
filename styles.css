@@ -60,6 +60,14 @@ header {
   color: var(--yellow);
 }
 
+.early-access {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.5px;
+  text-transform: lowercase;
+}
+
 .header-badge {
   margin-left: auto;
   background: rgba(255, 217, 61, 0.2);
@@ -257,15 +265,13 @@ header {
   left: 16px;
   z-index: 30;
   display: flex;
-  gap: 16px;
+  gap: 8px;
   align-items: center;
+  font-size: 0.82rem;
 }
-
-.how-to-wrap {
-  position: fixed;
-  top: 56px;
-  right: 16px;
-  z-index: 30;
+.footer-sep {
+  color: #94a3b8;
+  user-select: none;
 }
 
 .corner-link,
@@ -288,6 +294,84 @@ header {
 .feedback-link:hover {
   color: var(--blue);
 }
+
+.feedback-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.feedback-modal.hidden {
+  display: none;
+}
+.feedback-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+.feedback-modal-content {
+  position: relative;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+}
+.feedback-modal-content h2 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+.feedback-modal-content textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.feedback-modal-content textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+.feedback-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+.feedback-modal-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+.feedback-modal-cancel {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.feedback-modal-submit {
+  background: var(--blue);
+  color: white;
+}
+.feedback-modal-submit:hover {
+  filter: brightness(1.05);
+}
+.feedback-modal-status {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+.feedback-modal-status.success { color: #16a34a; }
+.feedback-modal-status.error { color: #dc2626; }
 
 .card-wrap {
   width: 100%;
@@ -900,11 +984,6 @@ button.dot {
     bottom: 12px;
   }
 
-  .how-to-wrap {
-    top: 52px;
-    right: 12px;
-  }
-
   .app-footer {
     left: 12px;
     bottom: 12px;
@@ -1052,4 +1131,207 @@ button.dot {
 
 .stats-empty a:hover {
   text-decoration: underline;
+}
+
+/* ── About page ──────────────────────────────────────────────────────────── */
+.about-main {
+  width: 100%;
+  max-width: 640px;
+  padding: 80px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.about-hero {
+  text-align: center;
+  padding: 36px 24px 28px;
+  background: linear-gradient(135deg, var(--white) 0%, #f0f9ff 100%);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(59, 158, 212, 0.12);
+}
+.about-hero-emoji {
+  font-size: 2.8rem;
+  margin-bottom: 8px;
+}
+.about-hero h1 {
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.8rem;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+.about-hero p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #475569;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.about-section {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+.about-section h2 {
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.15rem;
+  color: var(--navy);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.about-icon {
+  font-size: 1.2rem;
+}
+.about-section p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.about-steps {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.about-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 0.93rem;
+  line-height: 1.5;
+  color: #334155;
+}
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: var(--white);
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.about-tips {
+  padding-left: 20px;
+  font-size: 0.93rem;
+  line-height: 1.7;
+  color: #334155;
+}
+.about-tips li {
+  margin-bottom: 8px;
+}
+.about-tips a {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+.about-tips a:hover {
+  text-decoration: underline;
+}
+
+.about-tech-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.tech-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 12px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  gap: 4px;
+}
+.tech-emoji {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+.tech-card strong {
+  font-size: 0.85rem;
+  color: var(--navy);
+}
+.tech-card span:last-child {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.changelog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.changelog-entry {
+  border-left: 3px solid var(--blue);
+  padding-left: 16px;
+}
+.changelog-date {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+.changelog-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.tag-new {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.tag-launch {
+  background: #dbeafe;
+  color: #2563eb;
+}
+.changelog-entry ul {
+  padding-left: 18px;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: #475569;
+  margin-top: 6px;
+}
+.changelog-entry li {
+  margin-bottom: 4px;
+}
+
+.about-contact {
+  text-align: center;
+}
+.about-contact a {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+.about-contact a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .about-tech-grid {
+    grid-template-columns: 1fr;
+  }
+  .about-hero h1 {
+    font-size: 1.5rem;
+  }
 }

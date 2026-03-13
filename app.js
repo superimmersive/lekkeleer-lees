@@ -1,5 +1,5 @@
 import { initUser } from './user.js';
-import { initDB, startSession, endSession, recordSentenceResult, fetchCompletionForWeek, COMPLETED_KEY } from './db.js';
+import { initDB, startSession, endSession, recordSentenceResult, fetchCompletionForWeek, COMPLETED_KEY, submitFeedback } from './db.js';
 import * as ttsCache from './ttsCache.js';
 
 const CONTENT = [
@@ -108,7 +108,7 @@ const CONTENT = [
   },
 ];
 
-// TODO: move Azure TTS behind a backend before production use.
+// TODO: move TTS behind a backend before production use.
 const AZURE_CONFIG = {
   key: "3YOctxgpAKK992nzHbyNsjZrgZ7m0XZJHP014ezUXurj6O9n1E71JQQJ99CCAC5RqLJXJ3w3AAAYACOGESVi",
   region: "westeurope",
@@ -224,6 +224,11 @@ const els = {
   progressDots: document.getElementById("progressDots"),
   restartBtn: document.getElementById("restartBtn"),
   feedbackBtn: document.getElementById("feedbackBtn"),
+  feedbackModal: document.getElementById("feedbackModal"),
+  feedbackInput: document.getElementById("feedbackInput"),
+  feedbackCancelBtn: document.getElementById("feedbackCancelBtn"),
+  feedbackSubmitBtn: document.getElementById("feedbackSubmitBtn"),
+  feedbackStatus: document.getElementById("feedbackStatus"),
 };
 
 const speechSynthesisService = {
@@ -268,8 +273,8 @@ const speechSynthesisService = {
   async createAudioUrl(text, rate = 1) {
     const sdkLoaded = await this.loadSdk();
     if (!sdkLoaded) {
-      this.updateStatus("error", "⚠️ SDK laai fout");
-      throw new Error("Azure SDK failed to load");
+      this.updateStatus("error", "⚠️ Spraak laai fout");
+      throw new Error("Speech SDK failed to load");
     }
 
     const SpeechSDK = window.SpeechSDK;
@@ -383,9 +388,9 @@ const speechSynthesisService = {
     try {
       const url = await this.getOrCreateAudioUrl(text, rate);
       await this.playAudioUrl(url);
-      this.updateStatus("ok", "✅ Azure TTS");
+      this.updateStatus("ok", "✅ Ready");
     } catch (error) {
-      console.error("Azure TTS error:", error);
+      console.error("TTS error:", error);
       this.updateStatus("error", "⚠️ Verbinding fout");
       throw error;
     }
@@ -568,16 +573,54 @@ function bindEvents() {
   els.restartBtn.addEventListener("click", restart);
 
   if (els.feedbackBtn) {
-    els.feedbackBtn.addEventListener("click", () => {
-      window.open(
-        "https://docs.google.com/forms/d/e/1FAIpQLScBCnQANFR8c3q0xi2zsc3Cf4Jo9SgbvggsGCr2Slbv3N-6PA/viewform",
-        "_blank",
-        "noopener"
-      );
-    });
+    els.feedbackBtn.addEventListener("click", openFeedbackModal);
+  }
+  if (els.feedbackCancelBtn) {
+    els.feedbackCancelBtn.addEventListener("click", closeFeedbackModal);
+  }
+  if (els.feedbackSubmitBtn) {
+    els.feedbackSubmitBtn.addEventListener("click", () => submitFeedbackForm());
+  }
+  if (els.feedbackModal?.querySelector(".feedback-modal-backdrop")) {
+    els.feedbackModal.querySelector(".feedback-modal-backdrop").addEventListener("click", closeFeedbackModal);
   }
 
   document.addEventListener("keydown", handleKeydown);
+}
+
+function openFeedbackModal() {
+  if (!els.feedbackModal) return;
+  els.feedbackModal.classList.remove("hidden");
+  els.feedbackInput?.focus();
+  if (els.feedbackInput) els.feedbackInput.value = "";
+  if (els.feedbackStatus) {
+    els.feedbackStatus.textContent = "";
+    els.feedbackStatus.className = "feedback-modal-status hidden";
+  }
+}
+
+function closeFeedbackModal() {
+  if (!els.feedbackModal) return;
+  els.feedbackModal.classList.add("hidden");
+}
+
+async function submitFeedbackForm() {
+  const msg = els.feedbackInput?.value?.trim() || "";
+  if (!msg) return;
+  if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = true;
+  const ok = await submitFeedback(msg);
+  if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = false;
+  if (els.feedbackStatus) {
+    els.feedbackStatus.classList.remove("hidden");
+    els.feedbackStatus.className = "feedback-modal-status " + (ok ? "success" : "error");
+    els.feedbackStatus.textContent = ok
+      ? "Thank you!"
+      : "Could not send. Try again.";
+  }
+  if (ok && els.feedbackInput) {
+    els.feedbackInput.value = "";
+    setTimeout(closeFeedbackModal, 1200);
+  }
 }
 
 function getCurrentUnit() {
@@ -589,6 +632,10 @@ function getCurrentSentences() {
 }
 
 function handleKeydown(event) {
+  if (event.key === "Escape" && els.feedbackModal && !els.feedbackModal.classList.contains("hidden")) {
+    closeFeedbackModal();
+    return;
+  }
   if (els.celebration.classList.contains("show")) {
     return;
   }

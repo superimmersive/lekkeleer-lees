@@ -11,12 +11,9 @@
 <body>
   <header>
     <div class="logo">Lekke<span>Leer</span></div>
+    <span class="early-access">Early access</span>
     <div class="header-badge">📖 Lees Saam</div>
   </header>
-
-  <div class="how-to-wrap">
-    <a href="./how-to.html" class="corner-link" target="_blank" rel="noopener">How To Guide</a>
-  </div>
 
   <div class="unit-label" id="unitLabel">Term 1 · Week 1</div>
   <div class="week-selector" id="weekSelector" aria-label="Kies week">
@@ -30,12 +27,12 @@
     <button type="button" class="week-btn" data-week-index="7">Week 8</button>
   </div>
 
-  <div class="stars-bar" id="starsBar" aria-label="Vorderingsterre"></div>
+  <div class="stars-bar" id="starsBar" aria-label="Progress stars"></div>
 
   <div class="voice-bar">
     <button class="voice-btn" id="voiceAdriBtn" data-voice="Adri" type="button">🎀 Adri (vrou)</button>
     <button class="voice-btn" id="voiceWillemBtn" data-voice="Willem" type="button">🧔 Willem (man)</button>
-    <div class="tts-status ok" id="ttsStatus">✅ Azure TTS</div>
+    <div class="tts-status ok" id="ttsStatus">✅ Ready</div>
   </div>
 
   <div class="card-wrap">
@@ -84,11 +81,25 @@
   <div class="review-note">Review build: Vordering stars mirror database — each star shows that sentence’s completion.</div>
 
   <footer class="app-footer">
-    <a href="./stats.html" class="feedback-link">📊 Vordering</a>
-    <button type="button" class="feedback-link" id="feedbackBtn">
-      💬 Stuur terugvoer
-    </button>
+    <a href="./about.html" class="feedback-link" target="_blank" rel="noopener">ℹ️ About</a>
+    <span class="footer-sep">|</span>
+    <a href="./stats.html" class="feedback-link">📊 Progress</a>
+    <span class="footer-sep">|</span>
+    <button type="button" class="feedback-link" id="feedbackBtn">💬 Your feedback</button>
   </footer>
+
+  <div class="feedback-modal hidden" id="feedbackModal" role="dialog" aria-labelledby="feedbackModalTitle">
+    <div class="feedback-modal-backdrop"></div>
+    <div class="feedback-modal-content">
+      <h2 id="feedbackModalTitle">Send feedback</h2>
+      <textarea id="feedbackInput" placeholder="Write your feedback here…" rows="4"></textarea>
+      <div class="feedback-modal-actions">
+        <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="feedbackCancelBtn">Cancel</button>
+        <button type="button" class="feedback-modal-btn feedback-modal-submit" id="feedbackSubmitBtn">Send</button>
+      </div>
+      <p class="feedback-modal-status hidden" id="feedbackStatus"></p>
+    </div>
+  </div>
 
   <script type="module" src="./app.js"></script>
 </body>

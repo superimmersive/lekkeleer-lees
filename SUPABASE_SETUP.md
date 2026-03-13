@@ -76,6 +76,19 @@ create index results_user_idx   on sentence_results(user_id, recorded_at desc);
 create index results_session_idx on sentence_results(session_id);
 ```
 
+### 2d — Feedback table
+
+```sql
+create table feedback (
+  id         bigserial primary key,
+  user_id    text references users(id),
+  message    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index feedback_created_idx on feedback(created_at desc);
+```
+
 ---
 
 ## Step 3 — Set up Row Level Security (RLS)
@@ -88,6 +101,7 @@ Run this in the SQL Editor:
 alter table users            enable row level security;
 alter table sessions         enable row level security;
 alter table sentence_results enable row level security;
+alter table feedback         enable row level security;
 
 -- Users: anyone can insert/update their own row (matched by id)
 create policy "users_insert" on users
@@ -105,6 +119,10 @@ create policy "sessions_update" on sessions
 
 -- Sentence results: anon users can insert
 create policy "results_insert" on sentence_results
+  for insert with check (true);
+
+-- Feedback: anyone can insert
+create policy "feedback_insert" on feedback
   for insert with check (true);
 
 -- Read: users can only read their own data
@@ -125,6 +143,7 @@ create policy "results_delete_own" on sentence_results
 -- Sessions: allow delete (for progress reset)
 create policy "sessions_delete_own" on sessions
   for delete using (true);
+
 ```
 
 If you already ran the RLS setup earlier, run only these two policies in the SQL Editor:
@@ -133,7 +152,9 @@ create policy "results_delete_own" on sentence_results for delete using (true);
 create policy "sessions_delete_own" on sessions for delete using (true);
 ```
 
-**If "Wis vordering" (reset progress) doesn't clear stars/dots after refresh:** the delete policies above are required. Run them in Supabase → SQL Editor.
+**If "Reset progress" doesn't clear stars/dots after refresh:** the delete policies above are required. Run them in Supabase → SQL Editor.
+
+**For feedback:** run the feedback table and policy from section 2d and Step 3.
 
 ---
 

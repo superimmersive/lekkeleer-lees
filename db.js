@@ -312,6 +312,22 @@ export async function resetProgress() {
 }
 
 /**
+ * Submits user feedback to Supabase.
+ * @param {string} message
+ * @returns {Promise<boolean>}
+ */
+export async function submitFeedback(message) {
+  const user = getUser();
+  const trimmed = String(message || '').trim();
+  if (!trimmed) return false;
+  const ok = await _write('feedback', {
+    user_id: user?.id || null,
+    message: trimmed,
+  }, false);
+  return !!ok;
+}
+
+/**
  * Records a display name update to the server (e.g. after name prompt).
  * @param {string} name
  */
