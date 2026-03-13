@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LekkeLeer – Vordering</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header>
+    <div class="logo">Lekke<span>Leer</span></div>
+    <div class="header-badge">📊 Vordering</div>
+  </header>
+
+  <main class="stats-main">
+    <a href="./index.html" class="stats-back">← Terug na Lees</a>
+
+    <div class="stats-loading" id="statsLoading">Laai vordering…</div>
+    <div class="stats-content hidden" id="statsContent">
+      <div class="stats-total">
+        <span class="stats-total-val" id="statsTotal">0</span>
+        <span class="stats-total-lbl">sinne voltooi</span>
+      </div>
+      <div class="stats-time">
+        <span class="stats-time-val" id="statsTime">0</span>
+        <span class="stats-time-lbl">tyd (m/s)</span>
+      </div>
+      <div class="stats-word-time stats-total">
+        <span class="stats-total-val" id="statsWordTime">—</span>
+        <span class="stats-total-lbl">gem. woord tyd</span>
+      </div>
+      <div class="stats-weeks" id="statsWeeks"></div>
+      <button type="button" class="stats-reset-btn" id="statsResetBtn">Wis vordering</button>
+    </div>
+    <div class="stats-empty hidden" id="statsEmpty">
+      <p>Nog geen sinne voltooi nie.</p>
+      <p><a href="./index.html">Begin lees →</a></p>
+    </div>
+  </main>
+
+  <script type="module" src="./stats.js"></script>
+</body>
+</html>

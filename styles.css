@@ -256,6 +256,9 @@ header {
   bottom: 16px;
   left: 16px;
   z-index: 30;
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .how-to-wrap {
@@ -923,4 +926,130 @@ button.dot {
     gap: 16px;
     padding: 18px 20px;
   }
+}
+
+/* ── Stats dashboard ───────────────────────────────────────────────────────── */
+.stats-main {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.stats-back {
+  align-self: flex-start;
+  font-size: 0.9rem;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.stats-back:hover {
+  text-decoration: underline;
+}
+
+.stats-loading {
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.stats-total,
+.stats-time {
+  text-align: center;
+  padding: 16px 24px;
+  background: var(--white);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.stats-total-val,
+.stats-time-val {
+  display: block;
+  font-family: "Baloo 2", cursive;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.stats-total-lbl,
+.stats-time-lbl {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.stats-weeks {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-week-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.stats-week-label {
+  font-weight: 700;
+  color: var(--navy);
+  min-width: 56px;
+}
+
+.stats-week-stars {
+  flex: 1;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.stats-week-stars .stars-filled {
+  color: var(--yellow);
+}
+
+.stats-week-stars .stars-empty {
+  color: #e2e8f0;
+}
+
+.stats-week-count {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.stats-reset-btn {
+  margin-top: 24px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.stats-reset-btn:hover {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.stats-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: #64748b;
+}
+
+.stats-empty a {
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.stats-empty a:hover {
+  text-decoration: underline;
 }

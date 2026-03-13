@@ -1,3 +1,7 @@
+import { initUser } from './user.js';
+import { initDB, startSession, endSession, recordSentenceResult, fetchCompletionForWeek, COMPLETED_KEY } from './db.js';
+import * as ttsCache from './ttsCache.js';
+
 const CONTENT = [
   {
     term: 1,
@@ -139,6 +143,7 @@ const state = {
   sdkLoading: false,
   sdkResolvers: [],
   ttsCache: new Map(),
+  idbKeys: new Set(),
   ttsReady: false,
   playingSentence: false,
   karaokeCancel: null,
@@ -155,7 +160,40 @@ const state = {
     missed: 0,
   },
   completed: new Set(),
+  session: null,
+  listenStartTime: null,
 };
+
+function loadCompletedForWeek(weekIndex) {
+  try {
+    const raw = localStorage.getItem(`${COMPLETED_KEY}_${weekIndex}`);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCompletedForWeek() {
+  try {
+    const key = `${COMPLETED_KEY}_${state.unitIndex}`;
+    localStorage.setItem(key, JSON.stringify([...state.completed]));
+  } catch (_) {}
+}
+
+/** Loads completion from Supabase (source of truth), falls back to localStorage when offline. */
+async function loadCompletedForWeekWithSync(weekIndex) {
+  const weekNumber = weekIndex + 1;
+  const fromDb = await fetchCompletionForWeek(weekNumber);
+  if (fromDb.size > 0) {
+    try {
+      localStorage.setItem(`${COMPLETED_KEY}_${weekIndex}`, JSON.stringify([...fromDb]));
+    } catch (_) {}
+    return fromDb;
+  }
+  return loadCompletedForWeek(weekIndex);
+}
 
 const els = {
   starsBar: document.getElementById("starsBar"),
@@ -268,6 +306,7 @@ const speechSynthesisService = {
           state.ttsTimings.set(cacheKey, wordBoundaries);
 
           const blob = new Blob([result.audioData], { type: "audio/wav" });
+          ttsCache.set(cacheKey, blob, wordBoundaries).catch(() => {});
           resolve(URL.createObjectURL(blob));
         },
         (error) => {
@@ -287,7 +326,16 @@ const speechSynthesisService = {
     if (!state.ttsPending.has(key)) {
       state.ttsPending.set(
         key,
-        this.createAudioUrl(text, rate)
+        (async () => {
+          const cached = await ttsCache.get(key);
+          if (cached) {
+            const url = URL.createObjectURL(cached.blob);
+            state.ttsCache.set(key, url);
+            state.ttsTimings.set(key, cached.wordBoundaries);
+            return url;
+          }
+          return this.createAudioUrl(text, rate);
+        })()
           .then((url) => {
             state.ttsCache.set(key, url);
             state.ttsPending.delete(key);
@@ -451,18 +499,36 @@ const recognitionService = {
   },
 };
 
-function init() {
+async function init() {
+  initUser();
+  await initDB().catch(console.warn);
+
+  state.completed = await loadCompletedForWeekWithSync(state.unitIndex);
+  state.idbKeys = await ttsCache.keys().catch(() => new Set());
+
   bindEvents();
   renderStars();
   renderVoiceButtons();
   renderWeekButtons();
   refreshUI();
   speechSynthesisService.loadSdk().catch(() => {});
+
+  beginSession();
+}
+
+async function beginSession() {
+  if (state.session) {
+    endSession(state.session.id).catch(console.warn);
+  }
+  state.session = await startSession({
+    week: state.unitIndex + 1,
+    subject: 'afrikaans',
+  }).catch(() => null);
 }
 
 function bindEvents() {
   if (els.weekSelector) {
-    els.weekSelector.addEventListener("click", (event) => {
+    els.weekSelector.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
@@ -480,11 +546,12 @@ function bindEvents() {
 
       state.unitIndex = index;
       state.current = 0;
-      state.completed = new Set();
+      state.completed = await loadCompletedForWeekWithSync(index);
       state.totals.correct = 0;
       state.totals.missed = 0;
       refreshUI();
       renderWeekButtons();
+      beginSession();
     });
   }
 
@@ -579,12 +646,13 @@ function renderSentence() {
 
   els.sentenceEmoji.textContent = sentence.emoji;
   els.sentenceNum.textContent = `${state.current + 1} / ${getCurrentSentences().length}`;
-  els.translation.textContent = "";
+  els.translation.textContent = state.completed.has(state.current) ? sentence.en : "";
   els.sentenceText.replaceChildren();
 
+  const isCompleted = state.completed.has(state.current);
   words.forEach((word, index) => {
     const span = document.createElement("span");
-    span.className = "word-span";
+    span.className = isCompleted ? "word-span correct" : "word-span";
     span.textContent = word;
     span.dataset.index = String(index);
     span.dataset.word = normalizeWord(word);
@@ -667,7 +735,7 @@ function renderStars() {
   for (let index = 0; index < sentences.length; index += 1) {
     const star = document.createElement("span");
     star.className = "star";
-    if (index < state.completed.size) {
+    if (state.completed.has(index)) {
       star.classList.add("earned");
     }
     star.textContent = "⭐";
@@ -682,7 +750,7 @@ function isSentenceCached(sentence) {
     speechSynthesisService.buildCacheKey(sentence.af, 0.9),
     ...words.map((w) => speechSynthesisService.buildCacheKey(ttsWord(w), 0.85)),
   ];
-  return keys.every((k) => state.ttsCache.has(k));
+  return keys.every((k) => state.ttsCache.has(k) || state.idbKeys.has(k));
 }
 
 function renderProgressDots() {
@@ -724,8 +792,12 @@ let preloadGeneration = 0;
 function warmSentenceAudio(words) {
   preloadGeneration++;
   const sentence = getCurrentSentence();
-  state.ttsReady = false;
-  applyTtsReadyState();
+  const alreadyCached = isSentenceCached(sentence);
+
+  if (!alreadyCached) {
+    state.ttsReady = false;
+    applyTtsReadyState();
+  }
 
   const promises = [
     speechSynthesisService.getOrCreateAudioUrl(sentence.af, 0.85).catch(() => {}),
@@ -977,6 +1049,7 @@ function toggleListen() {
 }
 
 function startListening() {
+  state.listenStartTime = Date.now();
   stopSentencePlayback();
   recognitionService.ensureReady();
   speechSynthesisService.stop();
@@ -1051,13 +1124,30 @@ function scheduleSentenceCompletion() {
 }
 
 async function sentenceComplete() {
+  const durationSecs = state.listenStartTime
+    ? (Date.now() - state.listenStartTime) / 1000
+    : 0;
+  const totalWords = getCurrentSentence().af.split(" ").length;
+
   stopListening();
   const sentence = getCurrentSentence();
   els.translation.textContent = sentence.en;
-  // Every word was already marked correct in order by processTranscript; nothing left to mark.
 
   awardStar();
   renderMicStatus("idle", "✅ Uitstekend! Luister weer na die sin.");
+
+  if (state.session) {
+    recordSentenceResult({
+      sessionId: state.session.id,
+      week: state.unitIndex + 1,
+      sentenceIndex: state.current,
+      mode: 'listen',
+      correctWords: totalWords,
+      totalWords,
+      completed: true,
+      durationSecs,
+    }).catch(console.warn);
+  }
 
   try {
     await speechSynthesisService.speak(sentence.af, 0.9);
@@ -1222,6 +1312,7 @@ function awardStar() {
   }
 
   state.completed.add(state.current);
+  saveCompletedForWeek();
   renderStars();
   renderProgressDots();
 
@@ -1249,6 +1340,7 @@ function showCelebration() {
 function restart() {
   state.current = 0;
   state.completed.clear();
+  saveCompletedForWeek();
   state.totals.correct = 0;
   state.totals.missed = 0;
   resetSentenceProgress();
@@ -1294,3 +1386,9 @@ function escapeXml(text) {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+window.addEventListener("beforeunload", () => {
+  if (state.session) {
+    endSession(state.session.id).catch(() => {});
+  }
+});
