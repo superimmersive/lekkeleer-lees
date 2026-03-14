@@ -86,7 +86,20 @@
     <a href="./stats.html" class="feedback-link">📊 Progress</a>
     <span class="footer-sep">|</span>
     <button type="button" class="feedback-link" id="feedbackBtn">💬 Your feedback</button>
+    <span class="footer-sep">|</span>
+    <button type="button" class="feedback-link" id="versionBtn" title="Build version">📌 Version</button>
   </footer>
+
+  <div class="version-modal hidden" id="versionModal" role="dialog" aria-labelledby="versionModalTitle">
+    <div class="version-modal-backdrop"></div>
+    <div class="version-modal-content">
+      <h2 id="versionModalTitle">Build info</h2>
+      <div class="version-modal-body" id="versionModalBody"></div>
+      <div class="version-modal-actions">
+        <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="versionCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
 
   <div class="feedback-modal hidden" id="feedbackModal" role="dialog" aria-labelledby="feedbackModalTitle">
     <div class="feedback-modal-backdrop"></div>

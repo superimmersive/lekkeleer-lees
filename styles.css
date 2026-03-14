@@ -265,6 +265,7 @@ header {
   left: 16px;
   z-index: 30;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   font-size: 0.82rem;
@@ -372,6 +373,46 @@ header {
 }
 .feedback-modal-status.success { color: #16a34a; }
 .feedback-modal-status.error { color: #dc2626; }
+
+.version-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.version-modal.hidden {
+  display: none;
+}
+.version-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+.version-modal-content {
+  position: relative;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+}
+.version-modal-content h2 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+.version-modal-body {
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.6;
+}
+.version-modal-actions {
+  margin-top: 20px;
+}
 
 .card-wrap {
   width: 100%;

@@ -118,6 +118,11 @@ const AZURE_CONFIG = {
   },
 };
 
+const BUILD_INFO = {
+  version: "2026-03-09",
+  note: "Vordering stars mirror database — each star shows that sentence's completion.",
+};
+
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSpeechRecognition = Boolean(SpeechRecognitionCtor);
 const isMobileDevice = () => /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -230,6 +235,10 @@ const els = {
   feedbackCancelBtn: document.getElementById("feedbackCancelBtn"),
   feedbackSubmitBtn: document.getElementById("feedbackSubmitBtn"),
   feedbackStatus: document.getElementById("feedbackStatus"),
+  versionBtn: document.getElementById("versionBtn"),
+  versionModal: document.getElementById("versionModal"),
+  versionModalBody: document.getElementById("versionModalBody"),
+  versionCloseBtn: document.getElementById("versionCloseBtn"),
 };
 
 const speechSynthesisService = {
@@ -560,6 +569,8 @@ function initReviewNoteOverlap() {
   const note = document.querySelector('.review-note');
   if (!footer || !note) return;
 
+  note.textContent = `Review build: ${BUILD_INFO.version} — ${BUILD_INFO.note}`;
+
   const GAP = 8;
 
   function checkOverlap() {
@@ -642,7 +653,24 @@ function bindEvents() {
     els.feedbackModal.querySelector(".feedback-modal-backdrop").addEventListener("click", closeFeedbackModal);
   }
 
+  if (els.versionBtn) els.versionBtn.addEventListener("click", openVersionModal);
+  if (els.versionCloseBtn) els.versionCloseBtn.addEventListener("click", closeVersionModal);
+  if (els.versionModal?.querySelector(".version-modal-backdrop")) {
+    els.versionModal.querySelector(".version-modal-backdrop").addEventListener("click", closeVersionModal);
+  }
+
   document.addEventListener("keydown", handleKeydown);
+}
+
+function openVersionModal() {
+  if (!els.versionModal || !els.versionModalBody) return;
+  els.versionModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p>`;
+  els.versionModal.classList.remove("hidden");
+}
+
+function closeVersionModal() {
+  if (!els.versionModal) return;
+  els.versionModal.classList.add("hidden");
 }
 
 function openFeedbackModal() {
@@ -691,6 +719,10 @@ function getCurrentSentences() {
 function handleKeydown(event) {
   if (event.key === "Escape" && els.feedbackModal && !els.feedbackModal.classList.contains("hidden")) {
     closeFeedbackModal();
+    return;
+  }
+  if (event.key === "Escape" && els.versionModal && !els.versionModal.classList.contains("hidden")) {
+    closeVersionModal();
     return;
   }
   if (els.celebration.classList.contains("show")) {
