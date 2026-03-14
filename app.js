@@ -235,10 +235,12 @@ const els = {
   feedbackCancelBtn: document.getElementById("feedbackCancelBtn"),
   feedbackSubmitBtn: document.getElementById("feedbackSubmitBtn"),
   feedbackStatus: document.getElementById("feedbackStatus"),
-  versionBtn: document.getElementById("versionBtn"),
-  versionModal: document.getElementById("versionModal"),
-  versionModalBody: document.getElementById("versionModalBody"),
-  versionCloseBtn: document.getElementById("versionCloseBtn"),
+  debugBtn: document.getElementById("debugBtn"),
+  debugModal: document.getElementById("debugModal"),
+  debugModalBody: document.getElementById("debugModalBody"),
+  debugCloseBtn: document.getElementById("debugCloseBtn"),
+  debugMicStatus: document.getElementById("debugMicStatus"),
+  micRepromptBtn: document.getElementById("micRepromptBtn"),
 };
 
 const speechSynthesisService = {
@@ -653,24 +655,58 @@ function bindEvents() {
     els.feedbackModal.querySelector(".feedback-modal-backdrop").addEventListener("click", closeFeedbackModal);
   }
 
-  if (els.versionBtn) els.versionBtn.addEventListener("click", openVersionModal);
-  if (els.versionCloseBtn) els.versionCloseBtn.addEventListener("click", closeVersionModal);
-  if (els.versionModal?.querySelector(".version-modal-backdrop")) {
-    els.versionModal.querySelector(".version-modal-backdrop").addEventListener("click", closeVersionModal);
+  if (els.debugBtn) els.debugBtn.addEventListener("click", openDebugModal);
+  if (els.debugCloseBtn) els.debugCloseBtn.addEventListener("click", closeDebugModal);
+  if (els.debugModal?.querySelector(".version-modal-backdrop")) {
+    els.debugModal.querySelector(".version-modal-backdrop").addEventListener("click", closeDebugModal);
   }
+
+  if (els.micRepromptBtn) els.micRepromptBtn.addEventListener("click", repromptMicPermission);
 
   document.addEventListener("keydown", handleKeydown);
 }
 
-function openVersionModal() {
-  if (!els.versionModal || !els.versionModalBody) return;
-  els.versionModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p>`;
-  els.versionModal.classList.remove("hidden");
+async function repromptMicPermission() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showDebugMicStatus("error", "🚫 Mikrofoon nie ondersteun nie.");
+    return;
+  }
+  if (els.debugMicStatus) {
+    els.debugMicStatus.textContent = "Checking…";
+    els.debugMicStatus.classList.remove("hidden");
+    els.debugMicStatus.className = "version-modal-status";
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    showDebugMicStatus("success", "✅ Mikrofoon toegestaan.");
+    renderMicStatus("idle", "✅ Mikrofoon toegestaan. Tik Begin Lees!");
+  } catch (err) {
+    showDebugMicStatus("error", "🚫 Mikrofoon geweier. Gee toestemming in browser.");
+    renderMicStatus("error", "🚫 Mikrofoon geweier. Gee toestemming in browser.");
+  }
 }
 
-function closeVersionModal() {
-  if (!els.versionModal) return;
-  els.versionModal.classList.add("hidden");
+function showDebugMicStatus(kind, message) {
+  if (!els.debugMicStatus) return;
+  els.debugMicStatus.textContent = message;
+  els.debugMicStatus.classList.remove("hidden", "success", "error");
+  els.debugMicStatus.classList.add(kind === "success" ? "success" : "error");
+}
+
+function openDebugModal() {
+  if (!els.debugModal || !els.debugModalBody) return;
+  els.debugModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p>`;
+  if (els.debugMicStatus) {
+    els.debugMicStatus.textContent = "";
+    els.debugMicStatus.classList.add("hidden");
+  }
+  els.debugModal.classList.remove("hidden");
+}
+
+function closeDebugModal() {
+  if (!els.debugModal) return;
+  els.debugModal.classList.add("hidden");
 }
 
 function openFeedbackModal() {
@@ -721,8 +757,8 @@ function handleKeydown(event) {
     closeFeedbackModal();
     return;
   }
-  if (event.key === "Escape" && els.versionModal && !els.versionModal.classList.contains("hidden")) {
-    closeVersionModal();
+  if (event.key === "Escape" && els.debugModal && !els.debugModal.classList.contains("hidden")) {
+    closeDebugModal();
     return;
   }
   if (els.celebration.classList.contains("show")) {

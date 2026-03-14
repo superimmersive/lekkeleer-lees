@@ -87,16 +87,18 @@
     <span class="footer-sep">|</span>
     <button type="button" class="feedback-link" id="feedbackBtn">💬 Your feedback</button>
     <span class="footer-sep">|</span>
-    <button type="button" class="feedback-link" id="versionBtn" title="Build version">📌 Version</button>
+    <button type="button" class="feedback-link" id="debugBtn" title="Debug info">📌 Debug</button>
   </footer>
 
-  <div class="version-modal hidden" id="versionModal" role="dialog" aria-labelledby="versionModalTitle">
+  <div class="version-modal hidden" id="debugModal" role="dialog" aria-labelledby="debugModalTitle">
     <div class="version-modal-backdrop"></div>
     <div class="version-modal-content">
-      <h2 id="versionModalTitle">Build info</h2>
-      <div class="version-modal-body" id="versionModalBody"></div>
+      <h2 id="debugModalTitle">Debug</h2>
+      <div class="version-modal-body" id="debugModalBody"></div>
+      <p class="version-modal-status hidden" id="debugMicStatus"></p>
       <div class="version-modal-actions">
-        <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="versionCloseBtn">Close</button>
+        <button type="button" class="feedback-modal-btn feedback-modal-submit" id="micRepromptBtn">🎤 Re-prompt mic</button>
+        <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="debugCloseBtn">Close</button>
       </div>
     </div>
   </div>

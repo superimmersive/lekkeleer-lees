@@ -410,6 +410,12 @@ header {
   color: #475569;
   line-height: 1.6;
 }
+.version-modal-status {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+}
+.version-modal-status.success { color: #16a34a; }
+.version-modal-status.error { color: #dc2626; }
 .version-modal-actions {
   margin-top: 20px;
 }
