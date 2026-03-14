@@ -979,11 +979,6 @@ button.dot {
 }
 
 @media (max-width: 480px) {
-  .review-note {
-    right: 12px;
-    bottom: 12px;
-  }
-
   .app-footer {
     left: 12px;
     bottom: 12px;

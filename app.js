@@ -518,7 +518,31 @@ async function init() {
   refreshUI();
   speechSynthesisService.loadSdk().catch(() => {});
 
+  initReviewNoteOverlap();
   beginSession();
+}
+
+function initReviewNoteOverlap() {
+  const footer = document.querySelector('.app-footer');
+  const note = document.querySelector('.review-note');
+  if (!footer || !note) return;
+
+  const GAP = 8;
+
+  function checkOverlap() {
+    note.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      const fr = footer.getBoundingClientRect();
+      const nr = note.getBoundingClientRect();
+      const overlaps = fr.right + GAP > nr.left;
+      note.classList.toggle('hidden', overlaps);
+    });
+  }
+
+  const ro = new ResizeObserver(checkOverlap);
+  ro.observe(document.documentElement);
+  window.addEventListener('resize', checkOverlap);
+  checkOverlap();
 }
 
 async function beginSession() {
