@@ -120,6 +120,7 @@ const AZURE_CONFIG = {
 
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSpeechRecognition = Boolean(SpeechRecognitionCtor);
+const isMobileDevice = () => /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 const TIP_TEXT = hasSpeechRecognition
   ? "🎤 Tik <strong>Begin Lees</strong> en lees die sin hardop — elke woord word groen! | Tap <strong>Begin Lees</strong> and read aloud!"
   : "😔 Spraakherkenning is slegs beskikbaar in Chrome.";
@@ -420,15 +421,27 @@ const recognitionService = {
     }
 
     const recognition = new SpeechRecognitionCtor();
+    const mobile = isMobileDevice();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "af-ZA";
 
     recognition.onresult = (event) => {
       let transcript = "";
+      let lastInterim = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        transcript += event.results[index][0].transcript;
+        const result = event.results[index];
+        const t = result[0]?.transcript || "";
+        if (result.isFinal) {
+          transcript += t;
+        } else {
+          lastInterim = t;
+        }
       }
+      if (!transcript.trim() && lastInterim.trim() && isMobileDevice()) {
+        transcript = lastInterim;
+      }
+      if (!transcript.trim()) return;
       const transcriptWords = tokenizeTranscript(transcript);
       if (!transcriptWords.length) {
         return;
@@ -446,10 +459,17 @@ const recognitionService = {
     };
 
     recognition.onerror = (event) => {
+      if (event.error === "aborted") {
+        stopListening();
+        return;
+      }
       if (event.error === "not-allowed") {
         renderMicStatus("error", "🚫 Mikrofoon geweier. Gee toestemming in browser.");
       } else if (event.error === "no-speech") {
         renderHearingStatus("🎤 Neem jou tyd... lees die volgende woord wanneer jy gereed is.");
+        return;
+      } else if (event.error === "no-match" && isMobileDevice()) {
+        renderHearingStatus("🎤 Probeer weer... lees die woord hardop.");
         return;
       } else if (event.error === "network") {
         const networkMessage = isElectronRuntime()
@@ -468,10 +488,19 @@ const recognitionService = {
         return;
       }
 
-      try {
-        recognition.start();
-      } catch (error) {
-        console.warn("Speech recognition restart failed:", error);
+      const restart = () => {
+        if (!state.listening || !state.recognition) return;
+        try {
+          recognition.start();
+        } catch (error) {
+          console.warn("Speech recognition restart failed:", error);
+        }
+      };
+
+      if (isMobileDevice()) {
+        setTimeout(restart, 250);
+      } else {
+        restart();
       }
     };
 
@@ -497,7 +526,11 @@ const recognitionService = {
     }
 
     try {
-      state.recognition.stop();
+      if (isMobileDevice()) {
+        state.recognition.abort();
+      } else {
+        state.recognition.stop();
+      }
     } catch (error) {
       console.warn("Speech recognition stop failed:", error);
     }
@@ -1111,6 +1144,11 @@ function toggleListen() {
     return;
   }
 
+  if (!window.isSecureContext && isMobileDevice()) {
+    renderMicStatus("error", "🔒 Gebruik HTTPS (bv. ngrok URL). Mikrofoon werk nie op HTTP nie.");
+    return;
+  }
+
   if (state.listening) {
     stopListening();
     return;
@@ -1139,7 +1177,9 @@ function startListening() {
   els.playSentenceBtn.disabled = true;
   renderScoreChip();
   renderHearingStatus("🎤 Luister... Lees die sin hardop!");
-  startInputMeter();
+  if (!isMobileDevice()) {
+    startInputMeter();
+  }
   recognitionService.start();
 }
 
