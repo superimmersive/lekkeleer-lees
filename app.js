@@ -199,8 +199,8 @@ async function loadCompletedForWeekWithSync(weekIndex) {
 
 const els = {
   starsBar: document.getElementById("starsBar"),
+  breadcrumbPicker: document.getElementById("breadcrumbPicker"),
   unitLabel: document.getElementById("unitLabel"),
-  weekSelector: document.getElementById("weekSelector"),
   voiceButtons: Array.from(document.querySelectorAll("[data-voice]")),
   ttsStatus: document.getElementById("ttsStatus"),
   mainCard: document.getElementById("mainCard"),
@@ -509,7 +509,7 @@ async function init() {
   bindEvents();
   renderStars();
   renderVoiceButtons();
-  renderWeekButtons();
+  renderBreadcrumb();
   refreshUI();
 
   const stats = await fetchUserStats().catch(() => []);
@@ -549,33 +549,87 @@ async function beginSession() {
   }).catch(() => null);
 }
 
+function bindBreadcrumbPicker() {
+  const picker = els.breadcrumbPicker;
+  if (!picker) return;
+
+  function closeAllDropdowns() {
+    picker.querySelectorAll(".breadcrumb-dropdown").forEach((d) => d.classList.add("hidden"));
+    picker.querySelectorAll(".breadcrumb-trigger").forEach((t) => t.setAttribute("aria-expanded", "false"));
+  }
+
+  picker.addEventListener("click", async (event) => {
+    const trigger = event.target.closest(".breadcrumb-trigger");
+    const option = event.target.closest(".breadcrumb-dropdown button[role='option']");
+
+    if (trigger) {
+      event.stopPropagation();
+      const segment = trigger.closest(".breadcrumb-segment");
+      const dropdown = segment?.querySelector(".breadcrumb-dropdown");
+      const isOpen = dropdown && !dropdown.classList.contains("hidden");
+
+      closeAllDropdowns();
+      if (!isOpen && dropdown) {
+        dropdown.classList.remove("hidden");
+        trigger.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+
+    if (option) {
+      event.stopPropagation();
+      if (option.classList.contains("locked")) {
+        alert("Locked");
+        return;
+      }
+
+      const term = option.dataset.term;
+      const weekIndex = option.dataset.weekIndex;
+      const subject = option.dataset.subject;
+      const activity = option.dataset.activity;
+
+      if (term !== undefined) {
+        const n = Number(term);
+        if (n >= 2 && n <= 4) return;
+        // Term 1 only for now
+      }
+
+      if (weekIndex !== undefined) {
+        const index = Number(weekIndex);
+        if (Number.isNaN(index) || index === state.unitIndex || index < 0 || index >= CONTENT.length) return;
+        state.unitIndex = index;
+        state.current = 0;
+        state.completed = await loadCompletedForWeekWithSync(index);
+        state.totals.correct = 0;
+        state.totals.missed = 0;
+        refreshUI();
+        renderBreadcrumb();
+        beginSession();
+      }
+
+      if (subject !== undefined) {
+        if (subject === "english" || subject === "maths") return;
+        // Afrikaans only for now
+      }
+
+      if (activity !== undefined) {
+        if (activity === "spell") return;
+        // Lees saam only for now
+      }
+
+      closeAllDropdowns();
+      renderBreadcrumb();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!picker.contains(e.target)) closeAllDropdowns();
+  });
+}
+
 function bindEvents() {
-  if (els.weekSelector) {
-    els.weekSelector.addEventListener("click", async (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-
-      const button = target.closest(".week-btn");
-      if (!button) {
-        return;
-      }
-
-      const index = Number(button.dataset.weekIndex || "0");
-      if (Number.isNaN(index) || index === state.unitIndex || index < 0 || index >= CONTENT.length) {
-        return;
-      }
-
-      state.unitIndex = index;
-      state.current = 0;
-      state.completed = await loadCompletedForWeekWithSync(index);
-      state.totals.correct = 0;
-      state.totals.missed = 0;
-      refreshUI();
-      renderWeekButtons();
-      beginSession();
-    });
+  if (els.breadcrumbPicker) {
+    bindBreadcrumbPicker();
   }
 
   els.voiceButtons.forEach((button) => {
@@ -865,6 +919,7 @@ function refreshUI() {
   speechSynthesisService.stop();
   renderSentence();
   renderUnitLabel();
+  renderBreadcrumb();
   renderMicStatus("idle", hasSpeechRecognition ? "🎤 Gereed — tik Begin Lees!" : "Gebruik Chrome vir spraakherkenning");
   renderScoreChip();
   renderProgressDots();
@@ -903,14 +958,16 @@ function renderUnitLabel() {
   els.unitLabel.textContent = `Term ${unit.term} · Week ${unit.week}`;
 }
 
-function renderWeekButtons() {
-  if (!els.weekSelector) {
-    return;
-  }
+function renderBreadcrumb() {
+  if (!els.breadcrumbPicker) return;
 
-  const buttons = Array.from(els.weekSelector.querySelectorAll(".week-btn"));
-  buttons.forEach((button, index) => {
-    button.classList.toggle("active", index === state.unitIndex);
+  const triggers = els.breadcrumbPicker.querySelectorAll(".breadcrumb-trigger");
+  triggers.forEach((trigger) => {
+    const picker = trigger.dataset.picker;
+    if (picker === "term") trigger.textContent = "Term 1";
+    if (picker === "week") trigger.textContent = `Week ${state.unitIndex + 1}`;
+    if (picker === "subject") trigger.textContent = "Afrikaans";
+    if (picker === "activity") trigger.textContent = "Lees saam";
   });
 }
 
