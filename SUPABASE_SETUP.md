@@ -19,7 +19,12 @@
 
 ## Step 2 — Create the database tables
 
-Go to **SQL Editor** in the left sidebar and run each block below.
+Go to **SQL Editor** in the left sidebar. You can run the scripts from the `supabase/` folder:
+
+- `supabase/01_tables.sql` — creates all tables (safe to re-run, uses `if not exists`)
+- `supabase/02_rls.sql` — RLS policies (run after tables)
+
+Or copy the blocks below.
 
 ### 2a — Users table
 
@@ -171,6 +176,34 @@ create policy "sessions_delete_own" on sessions for delete using (true);
 const SUPABASE_URL     = 'https://YOUR_PROJECT_ID.supabase.co';  // ← paste here
 const SUPABASE_ANON_KEY = 'YOUR_ANON_PUBLIC_KEY';                 // ← paste here
 ```
+
+---
+
+## Step 4b — TTS proxy (Azure Speech key)
+
+The app uses a Supabase Edge Function to call Azure TTS so the API key stays server-side.
+
+1. **Create an Azure Speech resource** (if you don't have one):
+   - Azure Portal → Create resource → Speech
+   - Region: **West Europe** (matches the app)
+   - Copy the **Key** from Keys and Endpoint
+
+2. **Deploy the Edge Function:**
+   ```bash
+   cd lekkeleer-lees
+   npx supabase login          # opens browser, one-time
+   npm run deploy:tts          # deploys tts-proxy
+   ```
+   Or: `.\deploy-tts.ps1` (PowerShell)
+
+3. **Set the secret:**
+   ```bash
+   npx supabase secrets set AZURE_SPEECH_KEY=your_azure_speech_key_here --project-ref taiwqvydfhlkyjguunrb
+   ```
+
+   Or in Supabase Dashboard: **Edge Functions** → **tts-proxy** → **Secrets** → Add `AZURE_SPEECH_KEY`.
+
+4. **Verify:** Play a sentence in the app. If TTS works, the proxy is configured correctly.
 
 ---
 

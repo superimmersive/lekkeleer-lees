@@ -1,5 +1,5 @@
-import { initUser } from './user.js';
-import { fetchUserStats, resetProgress } from './db.js';
+import { initUser, getUser, setDisplayName, clearDisplayName } from './user.js';
+import { fetchUserStats, resetProgress, updateDisplayName } from './db.js';
 
 const WEEKS_TOTAL = 8;
 const SENTENCES_PER_WEEK = 7;
@@ -78,8 +78,69 @@ function renderStats({ byWeek, totalSentences, mins, secs, wordTimeAvg }) {
   }
 }
 
+function hasDisplayName(user) {
+  const name = (user?.displayName || '').trim();
+  return name.length > 0;
+}
+
+function renderProfile() {
+  const user = getUser();
+  const uidEl = document.getElementById('profileUid');
+  const nameEl = document.getElementById('profileName');
+  const editBtn = document.getElementById('profileEditBtn');
+  const profileEl = document.getElementById('statsProfile');
+
+  if (!user || !uidEl || !nameEl || !editBtn || !profileEl) return;
+
+  const shortId = user.id.slice(0, 8) + '…';
+  uidEl.textContent = `UID: ${shortId}`;
+  uidEl.classList.toggle('hidden', hasDisplayName(user));
+
+  if (hasDisplayName(user)) {
+    nameEl.textContent = (user.displayName || '').trim();
+    nameEl.classList.remove('stats-profile-prompt');
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Change name';
+    editBtn.classList.remove('hidden');
+    profileEl.classList.add('has-name');
+  } else {
+    nameEl.textContent = 'You have not set your Username yet. Press here to choose a name';
+    nameEl.classList.add('stats-profile-prompt');
+    editBtn.textContent = 'Set name';
+    editBtn.title = 'Choose your name';
+    editBtn.classList.remove('hidden');
+    profileEl.classList.remove('has-name');
+  }
+}
+
+function openNameModal() {
+  const modal = document.getElementById('nameModal');
+  const input = document.getElementById('nameInput');
+  if (!modal || !input) return;
+  input.value = (getUser()?.displayName || '').trim();
+  modal.classList.remove('hidden');
+  input.focus();
+}
+
+function closeNameModal() {
+  const modal = document.getElementById('nameModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveName() {
+  const input = document.getElementById('nameInput');
+  const name = (input?.value || '').trim().slice(0, 32);
+  if (!name) return;
+  setDisplayName(name);
+  await updateDisplayName(name).catch(console.warn);
+  renderProfile();
+  closeNameModal();
+}
+
 async function init() {
   initUser();
+  renderProfile();
+
   const loading = document.getElementById('statsLoading');
   const content = document.getElementById('statsContent');
   const empty = document.getElementById('statsEmpty');
@@ -87,6 +148,37 @@ async function init() {
   const results = await fetchUserStats();
 
   loading.classList.add('hidden');
+
+  const profileEl = document.getElementById('statsProfile');
+  const profileName = document.getElementById('profileName');
+  const profileEditBtn = document.getElementById('profileEditBtn');
+  if (profileEl) {
+    profileEl.addEventListener('click', (e) => {
+      if (e.target === profileEditBtn || profileEditBtn?.contains(e.target)) return;
+      openNameModal();
+    });
+  }
+  if (profileEditBtn) {
+    profileEditBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNameModal();
+    });
+  }
+
+  document.getElementById('nameCancelBtn')?.addEventListener('click', closeNameModal);
+  document.getElementById('nameSaveBtn')?.addEventListener('click', saveName);
+  document.getElementById('nameClearBtn')?.addEventListener('click', async () => {
+    clearDisplayName();
+    await updateDisplayName(null).catch(console.warn);
+    renderProfile();
+    const input = document.getElementById('nameInput');
+    if (input) input.value = '';
+  });
+  document.querySelector('.stats-name-modal-backdrop')?.addEventListener('click', closeNameModal);
+  document.getElementById('nameInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveName();
+    if (e.key === 'Escape') closeNameModal();
+  });
 
   if (results.length === 0) {
     empty.classList.remove('hidden');

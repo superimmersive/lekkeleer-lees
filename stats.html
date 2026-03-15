@@ -17,6 +17,12 @@
   <main class="stats-main">
     <a href="./index.html" class="stats-back">← Back to Read</a>
 
+    <div class="stats-profile" id="statsProfile">
+      <span class="stats-profile-uid" id="profileUid"></span>
+      <span class="stats-profile-name" id="profileName"></span>
+      <button type="button" class="stats-profile-edit" id="profileEditBtn" aria-label="Change name" title="Change name">✏️</button>
+    </div>
+
     <div class="stats-loading" id="statsLoading">Loading progress…</div>
     <div class="stats-content hidden" id="statsContent">
       <div class="stats-total">
@@ -39,6 +45,20 @@
       <p><a href="./index.html">Start reading →</a></p>
     </div>
   </main>
+
+  <div class="stats-name-modal hidden" id="nameModal" role="dialog" aria-labelledby="nameModalTitle">
+    <div class="stats-name-modal-backdrop"></div>
+    <div class="stats-name-modal-content">
+      <h2 id="nameModalTitle">Choose your name</h2>
+      <p class="stats-name-modal-hint">This helps identify you in progress reports. Use a first name or nickname.</p>
+      <input type="text" id="nameInput" placeholder="e.g. Mia or Jan" maxlength="32" />
+      <div class="stats-name-modal-actions">
+        <button type="button" class="stats-name-modal-clear" id="nameClearBtn">Clear username</button>
+        <button type="button" class="stats-name-modal-cancel" id="nameCancelBtn">Cancel</button>
+        <button type="button" class="stats-name-modal-save" id="nameSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="./stats.js"></script>
 </body>

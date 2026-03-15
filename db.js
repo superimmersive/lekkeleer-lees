@@ -21,8 +21,8 @@ import { getUser } from './user.js';
 // ── Config ────────────────────────────────────────────────────────────────────
 // Replace these two values with your Supabase project details.
 // Find them at: supabase.com → your project → Settings → API
-const SUPABASE_URL    = 'https://taiwqvydfhlkyjguunrb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhaXdxdnlkZmhsa3lqZ3V1bnJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzOTIwNDksImV4cCI6MjA4ODk2ODA0OX0.pnB1kt2kS81Y8jrxyc3Ot2psO1YqEEZr1M8F7aRaSMw';
+export const SUPABASE_URL = 'https://taiwqvydfhlkyjguunrb.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhaXdxdnlkZmhsa3lqZ3V1bnJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzOTIwNDksImV4cCI6MjA4ODk2ODA0OX0.pnB1kt2kS81Y8jrxyc3Ot2psO1YqEEZr1M8F7aRaSMw';
 
 const HEADERS = {
   'Content-Type':  'application/json',
@@ -254,7 +254,7 @@ export async function fetchUserStats() {
   if (!user) return [];
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/sentence_results?user_id=eq.${user.id}&select=week,sentence_index,correct_words,total_words,duration_secs,recorded_at`,
+      `${SUPABASE_URL}/rest/v1/sentence_results?user_id=eq.${user.id}&select=week,sentence_index,correct_words,total_words,duration_secs,recorded_at,completed`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -314,17 +314,34 @@ export async function resetProgress() {
 /**
  * Submits user feedback to Supabase.
  * @param {string} message
- * @returns {Promise<boolean>}
+ * @returns {Promise<{ ok: boolean, error?: string }>}
  */
 export async function submitFeedback(message) {
   const user = getUser();
   const trimmed = String(message || '').trim();
-  if (!trimmed) return false;
-  const ok = await _write('feedback', {
-    user_id: user?.id || null,
-    message: trimmed,
-  }, false);
-  return !!ok;
+  if (!trimmed) return { ok: false, error: 'Empty message' };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
+      method:  'POST',
+      headers:  HEADERS,
+      body:    JSON.stringify({
+        user_id: user?.id || null,
+        message: trimmed,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[Lumi DB] Feedback failed:', res.status, errText);
+      let hint = '';
+      if (res.status === 404) hint = ' — Table "feedback" may not exist. Run SUPABASE_SETUP.md section 2d.';
+      else if (res.status === 403) hint = ' — Check RLS policy "feedback_insert" in Supabase.';
+      return { ok: false, error: errText || res.statusText, hint };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('[Lumi DB] Feedback network error:', e);
+    return { ok: false, error: e.message, hint: ' — Check your connection.' };
+  }
 }
 
 /**

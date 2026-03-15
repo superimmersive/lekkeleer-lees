@@ -58,9 +58,17 @@ export function initUser() {
     localStorage.setItem(CREATED_KEY, createdAt);
   }
 
+  let displayName = localStorage.getItem(NAME_KEY) || null;
+  if (displayName && !displayName.trim()) {
+    localStorage.removeItem(NAME_KEY);
+    displayName = null;
+  } else if (displayName) {
+    displayName = displayName.trim();
+  }
+
   _currentUser = {
     id,
-    displayName : localStorage.getItem(NAME_KEY) || null,
+    displayName,
     createdAt,
     isNew,
   };
@@ -80,6 +88,15 @@ export function setDisplayName(name) {
   if (!trimmed) return;
   localStorage.setItem(NAME_KEY, trimmed);
   if (_currentUser) _currentUser.displayName = trimmed;
+}
+
+/**
+ * Clears the display name only. Use for testing or to reset name.
+ */
+export function clearDisplayName() {
+  localStorage.removeItem(NAME_KEY);
+  if (_currentUser) _currentUser.displayName = null;
+  console.log('[Lumi] Display name cleared.');
 }
 
 /**

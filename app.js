@@ -1,5 +1,5 @@
-import { initUser } from './user.js';
-import { initDB, startSession, endSession, recordSentenceResult, fetchCompletionForWeek, COMPLETED_KEY, submitFeedback } from './db.js';
+import { initUser, getUser, setDisplayName } from './user.js';
+import { initDB, startSession, endSession, recordSentenceResult, fetchCompletionForWeek, fetchUserStats, COMPLETED_KEY, submitFeedback, updateDisplayName, SUPABASE_URL, SUPABASE_ANON_KEY } from './db.js';
 import * as ttsCache from './ttsCache.js';
 
 const CONTENT = [
@@ -108,9 +108,8 @@ const CONTENT = [
   },
 ];
 
-// TODO: move TTS behind a backend before production use.
+// TTS uses Supabase Edge Function (tts-proxy) — Azure key stays server-side.
 const AZURE_CONFIG = {
-  key: "3YOctxgpAKK992nzHbyNsjZrgZ7m0XZJHP014ezUXurj6O9n1E71JQQJ99CCAC5RqLJXJ3w3AAAYACOGESVi",
   region: "westeurope",
   voices: {
     Adri: "af-ZA-AdriNeural",
@@ -145,9 +144,6 @@ const state = {
   expectedWord: 0,
   currentVoice: "Adri",
   currentAudio: null,
-  sdkReady: false,
-  sdkLoading: false,
-  sdkResolvers: [],
   ttsCache: new Map(),
   idbKeys: new Set(),
   ttsReady: false,
@@ -248,58 +244,12 @@ const speechSynthesisService = {
     return `${state.currentVoice}|${rate}|${text}`;
   },
 
-  async loadSdk() {
-    if (state.sdkReady) {
-      return true;
-    }
-
-    return new Promise((resolve) => {
-      state.sdkResolvers.push(resolve);
-      if (state.sdkLoading) {
-        return;
-      }
-
-      state.sdkLoading = true;
-      const script = document.createElement("script");
-      script.src = "https://aka.ms/csspeech/jsbrowserpackageraw";
-      script.onload = () => {
-        state.sdkReady = true;
-        state.sdkLoading = false;
-        state.sdkResolvers.forEach((callback) => callback(true));
-        state.sdkResolvers = [];
-      };
-      script.onerror = () => {
-        state.sdkLoading = false;
-        state.sdkResolvers.forEach((callback) => callback(false));
-        state.sdkResolvers = [];
-      };
-      document.head.appendChild(script);
-    });
-  },
-
   updateStatus(kind, message) {
     els.ttsStatus.className = `tts-status ${kind}`;
     els.ttsStatus.textContent = message;
   },
 
   async createAudioUrl(text, rate = 1) {
-    const sdkLoaded = await this.loadSdk();
-    if (!sdkLoaded) {
-      this.updateStatus("error", "⚠️ Spraak laai fout");
-      throw new Error("Speech SDK failed to load");
-    }
-
-    const SpeechSDK = window.SpeechSDK;
-    const config = SpeechSDK.SpeechConfig.fromSubscription(AZURE_CONFIG.key, AZURE_CONFIG.region);
-    config.speechSynthesisVoiceName = AZURE_CONFIG.voices[state.currentVoice];
-
-    const synthesizer = new SpeechSDK.SpeechSynthesizer(config, null);
-
-    const wordBoundaries = [];
-    synthesizer.wordBoundary = (_s, e) => {
-      wordBoundaries.push({ offset: e.audioOffset / 10000000, text: e.text });
-    };
-
     const ratePercent = rate === 1 ? "+0%" : `${Math.round((rate - 1) * 100)}%`;
     const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='af-ZA'>
       <voice name='${AZURE_CONFIG.voices[state.currentVoice]}'>
@@ -308,30 +258,31 @@ const speechSynthesisService = {
     </speak>`;
 
     const cacheKey = this.buildCacheKey(text, rate);
+    const url = `${SUPABASE_URL}/functions/v1/tts-proxy`;
 
-    return new Promise((resolve, reject) => {
-      synthesizer.speakSsmlAsync(
-        ssml,
-        (result) => {
-          synthesizer.close();
-
-          if (result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            reject(result);
-            return;
-          }
-
-          state.ttsTimings.set(cacheKey, wordBoundaries);
-
-          const blob = new Blob([result.audioData], { type: "audio/wav" });
-          ttsCache.set(cacheKey, blob, wordBoundaries).catch(() => {});
-          resolve(URL.createObjectURL(blob));
-        },
-        (error) => {
-          synthesizer.close();
-          reject(error);
-        }
-      );
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ ssml }),
     });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      this.updateStatus("error", "⚠️ Spraak fout");
+      throw new Error(err.error || `TTS failed: ${res.status}`);
+    }
+
+    const audioBuffer = await res.arrayBuffer();
+    const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+
+    const wordBoundaries = await estimateWordTimings(blob, text);
+    state.ttsTimings.set(cacheKey, wordBoundaries);
+    ttsCache.set(cacheKey, blob, wordBoundaries).catch(() => {});
+
+    return URL.createObjectURL(blob);
   },
 
   async getOrCreateAudioUrl(text, rate = 1) {
@@ -560,35 +511,32 @@ async function init() {
   renderVoiceButtons();
   renderWeekButtons();
   refreshUI();
-  speechSynthesisService.loadSdk().catch(() => {});
 
-  initReviewNoteOverlap();
+  const stats = await fetchUserStats().catch(() => []);
+  const completedRows = (stats || []).filter((r) => r.completed !== false);
+  const totalDone = new Set(completedRows.map((r) => `${r.week}-${r.sentence_index}`)).size;
+  const weeksWithCompletion = new Set(completedRows.map((r) => r.week));
+
+  if (shouldShowWelcome()) {
+    showWelcome({ totalDone, weeksWithCompletion });
+  }
   beginSession();
 }
 
-function initReviewNoteOverlap() {
-  const footer = document.querySelector('.app-footer');
-  const note = document.querySelector('.review-note');
-  if (!footer || !note) return;
-
-  note.textContent = `Review build: ${BUILD_INFO.version} — ${BUILD_INFO.note}`;
-
-  const GAP = 8;
-
-  function checkOverlap() {
-    note.classList.remove('hidden');
-    requestAnimationFrame(() => {
-      const fr = footer.getBoundingClientRect();
-      const nr = note.getBoundingClientRect();
-      const overlaps = fr.right + GAP > nr.left;
-      note.classList.toggle('hidden', overlaps);
-    });
+function shouldShowWelcome() {
+  const nav = performance.getEntriesByType?.("navigation")?.[0];
+  const navType = nav?.type ?? "navigate";
+  const referrer = document.referrer || "";
+  let fromInternalNav = false;
+  if (referrer) {
+    try {
+      const refUrl = new URL(referrer);
+      const sameOrigin = refUrl.origin === window.location.origin;
+      const path = refUrl.pathname || "";
+      fromInternalNav = sameOrigin && path && !path.replace(/\/$/, "").endsWith("index.html");
+    } catch (_) {}
   }
-
-  const ro = new ResizeObserver(checkOverlap);
-  ro.observe(document.documentElement);
-  window.addEventListener('resize', checkOverlap);
-  checkOverlap();
+  return navType === "navigate" && !fromInternalNav;
 }
 
 async function beginSession() {
@@ -696,7 +644,7 @@ function showDebugMicStatus(kind, message) {
 
 function openDebugModal() {
   if (!els.debugModal || !els.debugModalBody) return;
-  els.debugModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p>`;
+  els.debugModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p><details class="debug-troubleshoot"><summary>Troubleshooting</summary><ul><li><strong>Profile / Set name not working?</strong> Clear your browser cache (or hard refresh: Ctrl+Shift+R / Cmd+Shift+R). Stale cache can block updates.</li><li><strong>Mic not working?</strong> Use the Re-prompt mic button above. Ensure you're on HTTPS (e.g. GitHub Pages or ngrok).</li><li><strong>Feedback won't send?</strong> Check the console (F12) for errors. Ensure the feedback table and RLS exist in Supabase.</li></ul></details>`;
   if (els.debugMicStatus) {
     els.debugMicStatus.textContent = "";
     els.debugMicStatus.classList.add("hidden");
@@ -707,6 +655,109 @@ function openDebugModal() {
 function closeDebugModal() {
   if (!els.debugModal) return;
   els.debugModal.classList.add("hidden");
+}
+
+function hasDisplayName() {
+  const name = (getUser()?.displayName || "").trim();
+  return name.length > 0;
+}
+
+function showWelcome(opts = {}) {
+  const { totalDone = 0, weeksWithCompletion = new Set() } = opts;
+  const overlay = document.getElementById("welcomeOverlay");
+  const banner = document.getElementById("welcomeBanner");
+  const starsRow = document.getElementById("welcomeStarsRow");
+  const title = document.getElementById("welcomeTitle");
+  const sub = document.getElementById("welcomeSub");
+  const weekDots = document.getElementById("welcomeWeekDots");
+  const nameWrap = document.getElementById("welcomeNameWrap");
+  const continueBtn = document.getElementById("welcomeContinueBtn");
+  const pickWeekBtn = document.getElementById("welcomePickWeekBtn");
+
+  if (!overlay || !title || !sub || !continueBtn) return;
+
+  const user = getUser();
+  const isNew = user?.isNew ?? true;
+  const nameKnown = hasDisplayName();
+  const starCount = state.completed?.size ?? 0;
+  const weekNum = state.unitIndex + 1;
+  const unit = getCurrentUnit();
+
+  const dismiss = () => {
+    const inp = document.getElementById("welcomeNameInput");
+    const name = (inp?.value || "").trim().slice(0, 32);
+    if (name) {
+      setDisplayName(name);
+      updateDisplayName(name).catch(console.warn);
+    }
+    overlay.classList.add("hidden");
+  };
+
+  if (isNew) {
+    if (banner) banner.classList.add("hidden");
+    if (starsRow) starsRow.classList.add("hidden");
+    if (weekDots) weekDots.classList.add("hidden");
+    if (pickWeekBtn) pickWeekBtn.classList.add("hidden");
+    title.textContent = "Welcome to LekkeLeer! 📖";
+    sub.textContent = "Read Afrikaans sentences aloud and watch words turn green as you go. What should we call you?";
+    nameWrap?.classList.remove("hidden");
+    const inp = document.getElementById("welcomeNameInput");
+    if (inp) {
+      inp.value = "";
+      setTimeout(() => inp.focus(), 100);
+    }
+    continueBtn.textContent = "Get started";
+  } else {
+    if (banner) {
+      banner.textContent = `Week ${weekNum} • ${totalDone} sentences done`;
+      banner.classList.remove("hidden");
+    }
+    if (starsRow) {
+      let starsHtml = "";
+      for (let i = 0; i < 7; i++) {
+        starsHtml += state.completed?.has(i) ? '<span class="welcome-star earned">★</span>' : '<span class="welcome-star">☆</span>';
+      }
+      starsRow.innerHTML = starsHtml;
+      starsRow.classList.remove("hidden");
+    }
+    if (weekDots) {
+      let dotsHtml = "";
+      for (let w = 1; w <= 8; w++) {
+        const filled = weeksWithCompletion.has(w);
+        dotsHtml += `<span class="welcome-week-dot ${filled ? "filled" : ""}"></span>`;
+      }
+      weekDots.innerHTML = dotsHtml;
+      weekDots.classList.remove("hidden");
+    }
+    if (pickWeekBtn) pickWeekBtn.classList.remove("hidden");
+
+    if (nameKnown) {
+      title.textContent = `Welcome back, ${(user.displayName || "").trim()}!`;
+      sub.innerHTML = `You left off on Week ${weekNum}.<br>Ready to keep going?`;
+      nameWrap?.classList.add("hidden");
+      continueBtn.textContent = `Continue Week ${weekNum}`;
+      setTimeout(() => continueBtn.focus(), 100);
+    } else {
+      title.textContent = "Welcome back!";
+      sub.innerHTML = `You left off on Week ${weekNum}.<br>Add your name to personalize your progress.`;
+      nameWrap?.classList.remove("hidden");
+      const inp = document.getElementById("welcomeNameInput");
+      if (inp) {
+        inp.value = "";
+        setTimeout(() => inp.focus(), 100);
+      }
+      continueBtn.textContent = `Continue Week ${weekNum}`;
+    }
+  }
+
+  overlay.classList.remove("hidden");
+
+  continueBtn.onclick = dismiss;
+  if (pickWeekBtn) pickWeekBtn.onclick = dismiss;
+  overlay.querySelector(".welcome-backdrop")?.addEventListener("click", dismiss);
+  document.getElementById("welcomeNameInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") dismiss();
+  });
 }
 
 function openFeedbackModal() {
@@ -729,16 +780,16 @@ async function submitFeedbackForm() {
   const msg = els.feedbackInput?.value?.trim() || "";
   if (!msg) return;
   if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = true;
-  const ok = await submitFeedback(msg);
+  const result = await submitFeedback(msg);
   if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = false;
   if (els.feedbackStatus) {
     els.feedbackStatus.classList.remove("hidden");
-    els.feedbackStatus.className = "feedback-modal-status " + (ok ? "success" : "error");
-    els.feedbackStatus.textContent = ok
+    els.feedbackStatus.className = "feedback-modal-status " + (result.ok ? "success" : "error");
+    els.feedbackStatus.textContent = result.ok
       ? "Thank you!"
-      : "Could not send. Try again.";
+      : "Could not send." + (result.hint || " Try again.");
   }
-  if (ok && els.feedbackInput) {
+  if (result.ok && els.feedbackInput) {
     els.feedbackInput.value = "";
     setTimeout(closeFeedbackModal, 1200);
   }
@@ -753,13 +804,20 @@ function getCurrentSentences() {
 }
 
 function handleKeydown(event) {
-  if (event.key === "Escape" && els.feedbackModal && !els.feedbackModal.classList.contains("hidden")) {
-    closeFeedbackModal();
-    return;
-  }
-  if (event.key === "Escape" && els.debugModal && !els.debugModal.classList.contains("hidden")) {
-    closeDebugModal();
-    return;
+  if (event.key === "Escape") {
+    const welcome = document.getElementById("welcomeOverlay");
+    if (welcome && !welcome.classList.contains("hidden")) {
+      document.getElementById("welcomeContinueBtn")?.click();
+      return;
+    }
+    if (els.feedbackModal && !els.feedbackModal.classList.contains("hidden")) {
+      closeFeedbackModal();
+      return;
+    }
+    if (els.debugModal && !els.debugModal.classList.contains("hidden")) {
+      closeDebugModal();
+      return;
+    }
   }
   if (els.celebration.classList.contains("show")) {
     return;
@@ -1553,6 +1611,31 @@ function confetti(count) {
     document.body.appendChild(piece);
     piece.addEventListener("animationend", () => piece.remove());
   }
+}
+
+/** Estimate word timings for karaoke (REST API has no word boundaries). */
+async function estimateWordTimings(blob, text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    const blobUrl = URL.createObjectURL(blob);
+    audio.onloadedmetadata = () => {
+      URL.revokeObjectURL(blobUrl);
+      const duration = audio.duration || 0;
+      const timings = words.map((word, i) => ({
+        offset: (duration * i) / words.length,
+        text: word,
+      }));
+      resolve(timings);
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      resolve(words.map((word, i) => ({ offset: i, text: word })));
+    };
+    audio.src = blobUrl;
+  });
 }
 
 function escapeXml(text) {
