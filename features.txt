@@ -36,3 +36,6 @@ Tap a word → hear it spoken     →  Tap-to-hear / word playback
 cd "A:\SI-bitbucket-projects\SaaS_LearningApp\lekkeleer-lees"
 python -m http.server 8080
 http://localhost:8080/
+
+Admin
+https://yoursite.github.io/admin.html?token=ll-admin-2024

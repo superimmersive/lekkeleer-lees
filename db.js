@@ -312,35 +312,43 @@ export async function resetProgress() {
 }
 
 /**
- * Submits user feedback to Supabase.
+ * Submits user feedback via Edge Function → Discord webhook.
+ * No database; posts directly to Discord.
  * @param {string} message
- * @returns {Promise<{ ok: boolean, error?: string }>}
+ * @returns {Promise<{ ok: boolean, error?: string, hint?: string }>}
  */
 export async function submitFeedback(message) {
   const user = getUser();
   const trimmed = String(message || '').trim();
   if (!trimmed) return { ok: false, error: 'Empty message' };
+
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/feedback-to-discord`, {
       method:  'POST',
-      headers:  HEADERS,
-      body:    JSON.stringify({
-        user_id: user?.id || null,
-        message: trimmed,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        message:     trimmed,
+        userId:      user?.id || null,
+        displayName: user?.displayName || null,
       }),
     });
+
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const errText = await res.text();
-      console.error('[Lumi DB] Feedback failed:', res.status, errText);
-      let hint = '';
-      if (res.status === 404) hint = ' — Table "feedback" may not exist. Run SUPABASE_SETUP.md section 2d.';
-      else if (res.status === 403) hint = ' — Check RLS policy "feedback_insert" in Supabase.';
-      return { ok: false, error: errText || res.statusText, hint };
+      console.error('[Lumi DB] Feedback failed:', res.status, data);
+      return {
+        ok:    false,
+        error: data.error || res.statusText,
+        hint:  res.status === 500 ? ' Check DISCORD_FEEDBACK_WEBHOOK secret.' : '',
+      };
     }
     return { ok: true };
   } catch (e) {
     console.error('[Lumi DB] Feedback network error:', e);
-    return { ok: false, error: e.message, hint: ' — Check your connection.' };
+    return { ok: false, error: e.message, hint: ' Check your connection.' };
   }
 }
 

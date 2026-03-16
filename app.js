@@ -226,6 +226,10 @@ const els = {
   progressDots: document.getElementById("progressDots"),
   restartBtn: document.getElementById("restartBtn"),
   feedbackBtn: document.getElementById("feedbackBtn"),
+  nameRequiredModal: document.getElementById("nameRequiredModal"),
+  nameRequiredInput: document.getElementById("nameRequiredInput"),
+  nameRequiredCancelBtn: document.getElementById("nameRequiredCancelBtn"),
+  nameRequiredContinueBtn: document.getElementById("nameRequiredContinueBtn"),
   feedbackModal: document.getElementById("feedbackModal"),
   feedbackInput: document.getElementById("feedbackInput"),
   feedbackCancelBtn: document.getElementById("feedbackCancelBtn"),
@@ -647,6 +651,28 @@ function bindEvents() {
   if (els.feedbackBtn) {
     els.feedbackBtn.addEventListener("click", openFeedbackModal);
   }
+  if (els.nameRequiredCancelBtn) {
+    els.nameRequiredCancelBtn.addEventListener("click", closeNameRequiredModal);
+  }
+  if (els.nameRequiredContinueBtn) {
+    els.nameRequiredContinueBtn.addEventListener("click", () => {
+      const name = (els.nameRequiredInput?.value || "").trim();
+      if (!name) return;
+      setDisplayName(name);
+      updateDisplayName(name).catch(() => {});
+      closeNameRequiredModal();
+      openFeedbackModal();
+    });
+  }
+  if (els.nameRequiredModal?.querySelector(".feedback-modal-backdrop")) {
+    els.nameRequiredModal.querySelector(".feedback-modal-backdrop").addEventListener("click", closeNameRequiredModal);
+  }
+  els.nameRequiredInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      els.nameRequiredContinueBtn?.click();
+    }
+  });
   if (els.feedbackCancelBtn) {
     els.feedbackCancelBtn.addEventListener("click", closeFeedbackModal);
   }
@@ -698,7 +724,7 @@ function showDebugMicStatus(kind, message) {
 
 function openDebugModal() {
   if (!els.debugModal || !els.debugModalBody) return;
-  els.debugModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p><details class="debug-troubleshoot"><summary>Troubleshooting</summary><ul><li><strong>Profile / Set name not working?</strong> Clear your browser cache (or hard refresh: Ctrl+Shift+R / Cmd+Shift+R). Stale cache can block updates.</li><li><strong>Mic not working?</strong> Use the Re-prompt mic button above. Ensure you're on HTTPS (e.g. GitHub Pages or ngrok).</li><li><strong>Feedback won't send?</strong> Check the console (F12) for errors. Ensure the feedback table and RLS exist in Supabase.</li></ul></details>`;
+  els.debugModalBody.innerHTML = `<p><strong>Build:</strong> ${BUILD_INFO.version}</p><p>${BUILD_INFO.note}</p><details class="debug-troubleshoot"><summary>Troubleshooting</summary><ul><li><strong>Profile / Set name not working?</strong> Clear your browser cache (or hard refresh: Ctrl+Shift+R / Cmd+Shift+R). Stale cache can block updates.</li><li><strong>Mic not working?</strong> Use the Re-prompt mic button above. Ensure you're on HTTPS (e.g. GitHub Pages or ngrok).</li><li><strong>Feedback won't send?</strong> Check the console (F12) for errors. Run <code>supabase/03_feedback_fix.sql</code> in Supabase SQL Editor if needed. See FEEDBACK_TROUBLESHOOTING.md.</li></ul></details>`;
   if (els.debugMicStatus) {
     els.debugMicStatus.textContent = "";
     els.debugMicStatus.classList.add("hidden");
@@ -815,6 +841,11 @@ function showWelcome(opts = {}) {
 }
 
 function openFeedbackModal() {
+  const name = (getUser()?.displayName || "").trim();
+  if (!name) {
+    openNameRequiredModal();
+    return;
+  }
   if (!els.feedbackModal) return;
   els.feedbackModal.classList.remove("hidden");
   els.feedbackInput?.focus();
@@ -825,6 +856,20 @@ function openFeedbackModal() {
   }
 }
 
+function openNameRequiredModal() {
+  if (!els.nameRequiredModal) return;
+  els.nameRequiredModal.classList.remove("hidden");
+  if (els.nameRequiredInput) {
+    els.nameRequiredInput.value = "";
+    els.nameRequiredInput.focus();
+  }
+}
+
+function closeNameRequiredModal() {
+  if (!els.nameRequiredModal) return;
+  els.nameRequiredModal.classList.add("hidden");
+}
+
 function closeFeedbackModal() {
   if (!els.feedbackModal) return;
   els.feedbackModal.classList.add("hidden");
@@ -833,6 +878,14 @@ function closeFeedbackModal() {
 async function submitFeedbackForm() {
   const msg = els.feedbackInput?.value?.trim() || "";
   if (!msg) return;
+  if (!(getUser()?.displayName || "").trim()) {
+    if (els.feedbackStatus) {
+      els.feedbackStatus.classList.remove("hidden");
+      els.feedbackStatus.className = "feedback-modal-status error";
+      els.feedbackStatus.textContent = "Please set your name first.";
+    }
+    return;
+  }
   if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = true;
   const result = await submitFeedback(msg);
   if (els.feedbackSubmitBtn) els.feedbackSubmitBtn.disabled = false;
@@ -864,6 +917,10 @@ function handleKeydown(event) {
       document.getElementById("welcomeContinueBtn")?.click();
       return;
     }
+    if (els.nameRequiredModal && !els.nameRequiredModal.classList.contains("hidden")) {
+      closeNameRequiredModal();
+      return;
+    }
     if (els.feedbackModal && !els.feedbackModal.classList.contains("hidden")) {
       closeFeedbackModal();
       return;
@@ -875,21 +932,6 @@ function handleKeydown(event) {
   }
   if (els.celebration.classList.contains("show")) {
     return;
-  }
-
-  if (event.key === "ArrowRight") {
-    navigate(1);
-    return;
-  }
-
-  if (event.key === "ArrowLeft") {
-    navigate(-1);
-    return;
-  }
-
-  if (event.key === " ") {
-    event.preventDefault();
-    toggleListen();
   }
 }
 

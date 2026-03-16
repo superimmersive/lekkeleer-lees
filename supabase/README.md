@@ -20,6 +20,7 @@ Run these in **Supabase → SQL Editor** in order.
 | Function | Purpose |
 |----------|---------|
 | `functions/tts-proxy` | Proxies TTS to Azure Speech REST API (keeps key server-side) |
+| `functions/feedback-to-discord` | Forwards feedback to Discord webhook |
 
-Deploy: `supabase functions deploy tts-proxy`  
-Secret: `AZURE_SPEECH_KEY` — see SUPABASE_SETUP.md Step 4b.
+**TTS:** `npm run deploy:tts` — Secret: `AZURE_SPEECH_KEY`  
+**Feedback:** `npm run deploy:feedback` — Secret: `DISCORD_FEEDBACK_WEBHOOK`

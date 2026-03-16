@@ -26,3 +26,11 @@ Secrets and tokens used in this project. Keep this file private if you share the
 
 - **Region:** West Europe
 - **Key:** Stored in Supabase secret `AZURE_SPEECH_KEY` (not in code)
+
+---
+
+## Feedback (Discord)
+
+- **Edge Function:** `feedback-to-discord`
+- **Secret:** `DISCORD_FEEDBACK_WEBHOOK` — your Discord webhook URL
+- **Deploy:** `npm run deploy:feedback`

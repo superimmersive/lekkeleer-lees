@@ -150,11 +150,25 @@
     </div>
   </div>
 
+  <div class="feedback-modal hidden" id="nameRequiredModal" role="dialog" aria-labelledby="nameRequiredTitle">
+    <div class="feedback-modal-backdrop"></div>
+    <div class="feedback-modal-content">
+      <h2 id="nameRequiredTitle">Set your name first</h2>
+      <p class="feedback-modal-hint">Please enter your name before sending feedback. This helps us know who the feedback is from.</p>
+      <input type="text" id="nameRequiredInput" placeholder="e.g. Mia or Jan" maxlength="32" />
+      <div class="feedback-modal-actions">
+        <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="nameRequiredCancelBtn">Cancel</button>
+        <button type="button" class="feedback-modal-btn feedback-modal-submit" id="nameRequiredContinueBtn">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <div class="feedback-modal hidden" id="feedbackModal" role="dialog" aria-labelledby="feedbackModalTitle">
     <div class="feedback-modal-backdrop"></div>
     <div class="feedback-modal-content">
       <h2 id="feedbackModalTitle">Send feedback</h2>
       <textarea id="feedbackInput" placeholder="Write your feedback here…" rows="4"></textarea>
+      <p class="feedback-modal-contact">Developer: <a href="mailto:devon@superimmersive.io">devon@superimmersive.io</a></p>
       <div class="feedback-modal-actions">
         <button type="button" class="feedback-modal-btn feedback-modal-cancel" id="feedbackCancelBtn">Cancel</button>
         <button type="button" class="feedback-modal-btn feedback-modal-submit" id="feedbackSubmitBtn">Send</button>
