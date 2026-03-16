@@ -562,9 +562,10 @@ header {
   filter: brightness(1.05);
 }
 .feedback-modal-contact {
-  margin: 12px 0 0;
+  margin: 0;
   font-size: 0.85rem;
   color: #64748b;
+  text-align: center;
 }
 .feedback-modal-contact a {
   color: var(--blue);
